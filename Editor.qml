@@ -72,8 +72,12 @@ Item {
     return parts.join("  ›  ")
   }
 
+  // Children delivered through a ListView's model arrive as array-like
+  // objects that fail Array.isArray(), so judge by content instead: a node
+  // is a wheel when it has children at all beyond commands.
   function isWheel(item) {
-    return Array.isArray(item.children) && (item.children.length > 0 || !item.command)
+    return !!item && !!item.children
+      && (item.children.length > 0 || !item.command)
   }
 
   // ---- form stack helpers -------------------------------------------------
@@ -343,14 +347,7 @@ Item {
           required property int index
           required property var modelData
           readonly property var item: browseRow.modelData
-          readonly property bool wheel: Array.isArray(browseRow.modelData.children)
-            && (browseRow.modelData.children.length > 0 || !browseRow.modelData.command)
-
-          Component.onCompleted: console.log("OMAS-PROBE browse row", browseRow.index,
-            "isArrayChildren:", Array.isArray(browseRow.modelData.children),
-            "isArrayModelData:", Array.isArray(browseRow.modelData),
-            "typeofChildren:", typeof browseRow.modelData.children,
-            "childrenLength:", browseRow.modelData.children ? browseRow.modelData.children.length : -1)
+          readonly property bool wheel: editor.isWheel(browseRow.modelData)
 
           MouseArea {
             id: rowMouse
@@ -637,8 +634,7 @@ Item {
             required property int index
             required property var modelData
             readonly property var item: childRow.modelData
-            readonly property bool wheel: Array.isArray(childRow.modelData.children)
-              && (childRow.modelData.children.length > 0 || !childRow.modelData.command)
+            readonly property bool wheel: editor.isWheel(childRow.modelData)
 
             MouseArea {
               id: childRowMouse

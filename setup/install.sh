@@ -20,6 +20,10 @@ else
   mkdir -p "$DEST"
   cp "$REPO_DIR/manifest.json" "$REPO_DIR/Menu.qml" "$REPO_DIR/Editor.qml" "$REPO_DIR/PieModel.js" "$DEST/"
   cp "$REPO_DIR/README.md" "$REPO_DIR/omas.jsonc" "$DEST/" 2>/dev/null || true
+  # Starter icon pack for path-based icons: every root PNG except the README preview
+  for f in "$REPO_DIR"/*.png; do
+    [[ "$(basename "$f")" == "preview.png" ]] || cp "$f" "$DEST/"
+  done
   echo "Copied plugin files to $DEST"
 fi
 

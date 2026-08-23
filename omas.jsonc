@@ -1,28 +1,18 @@
-// Omas wheel menu — https://github.com/Schneegans/Fly-Pie, but for Omarchy.
+// Omas wheel menu — Fly-Pie (https://github.com/Schneegans/Fly-Pie), but for Omarchy.
 //
 // Edit this file and save: Omas reloads it live, no restart needed.
+// (Saving from the built-in editor rewrites the file, so comments are lost.)
 //
 //   name     label shown under the icon (required)
-//   icon     emoji, text glyph, or "/absolute/path/to/image" (optional)
-//   command  shell command to run — node becomes a leaf
-//   children nested nodes — node opens a sub-wheel; the tree can grow
-//            as deep as you like
+//   icon     emoji, text glyph, or "/absolute/path/to/image" (optional).
+//            A starter icon pack ships next to the plugin files, e.g.:
+//            "/home/YOU/.config/omarchy/plugins/palccod.omas/web.png"
+//   command  shell command to run — a node with a command is a leaf
+//   children nested nodes — a node with children opens a sub-wheel; the
+//            tree can grow as deep as you like
 //
-// A node with both "command" and "children" prefers "children".
-//
-// selectionMode: "click" — hover a wedge, click to select.
-//                "stroke" — Fly-Pie marking mode: press and drag; pausing
-//                or making a sharp turn selects the wedge you dragged
-//                through, so you can chain through submenus in one motion.
-//                Drag into (or release over) the center to go back.
-//                One-off override: omarchy-shell shell summon palccod.omas
-//                '{"mode":"stroke"}'
-//
-// Prefer not to edit this by hand at all? Open the built-in editor:
-//   omarchy-shell shell summon palccod.omas '{"edit":true}'
-// (Saving from the editor rewrites this file — hand-written comments are
-// lost.)
-
+//   selectionMode  "click" (hover + click) or "stroke" (Fly-Pie marking
+//                  mode: press, drag through items, pause or turn to select)
 {
   "selectionMode": "click",
   "items": [
@@ -51,6 +41,7 @@
     },
     { "name": "Terminal", "icon": "💻", "command": "alacritty" },
     { "name": "Screenshot", "icon": "📸", "command": "omarchy capture screenshot" },
-    { "name": "Files", "icon": "📁", "command": "xdg-open ~" }
+    { "name": "Files", "icon": "📁", "command": "xdg-open ~" },
+    { "name": "VS-Code", "icon": "🫥", "command": "code" }
   ]
 }

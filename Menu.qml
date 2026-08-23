@@ -66,12 +66,10 @@ Item {
   function ping() {
     return JSON.stringify({
       mode: selectionMode,
-      payloadMode: payloadMode,
       configMode: configSelectionMode,
       editorOpen: editorOpen,
       formDepth: editor.formStack.length,
       opened: opened,
-      stroking: stroking,
       items: itemCount,
       title: wheel ? wheel.title : ""
     })
