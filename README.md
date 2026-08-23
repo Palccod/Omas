@@ -32,6 +32,8 @@ want.
 
 - [Omarchy](https://omarchy.org) with its Quickshell shell (the default)
 - Hyprland (the shell IPC and keybind live there)
+- `python3` (used to read the config through a size-capped, no-symlink
+  file descriptor; standard on Omarchy systems)
 
 ## Installation
 
@@ -176,9 +178,11 @@ the keybind you added in `bindings.lua`.
 - **No network access** — Omas never makes network requests
 - **No privileged behavior** — no sudo, polkit, services, or system files
 - **File access** — reads and writes only
-  `~/.config/omarchy/extensions/omas.jsonc` (your own wheel definition);
-  writes are atomic (temp file + rename) and size-capped. No other files
-  are touched
+  `~/.config/omarchy/extensions/omas.jsonc` (your own wheel definition).
+  Reads are producer-bounded: the file is opened with `O_NOFOLLOW`,
+  regular-file-checked, and read at most 256 KiB before anything reaches
+  the UI; writes are atomic (temp file + rename) and size-capped. No
+  other files are touched
 - **Process execution** — runs exactly the shell commands you configure in
   your wheel, when you select them; nothing is executed automatically
 - **No data collection** — nothing leaves your machine; there are no

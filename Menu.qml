@@ -87,7 +87,7 @@ Item {
   }
 
   function open(payloadJson) {
-    if (!configReady) configFile.reload()
+    if (!configReady) loadConfig()
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
     var mode = String(payload.selectionMode || payload.mode || "").toLowerCase()
@@ -305,52 +305,122 @@ Item {
     return -Math.PI / 2 + index * 2 * Math.PI / itemCount
   }
 
-  // Raw text from the file/producer boundary funnels through here;
-  // PieModel.parseConfig rejects oversized or over-budget documents
-  // before any of it is materialized, and a rejection keeps the last
-  // good rootWheel on screen.
-  function applyConfig(raw) {
-    var parsed = PieModel.parseConfig(raw)
-    configError = parsed.error
-    configSelectionMode = parsed.selectionMode !== "" ? parsed.selectionMode : "click"
-    if (opened && payloadMode === "") selectionMode = configSelectionMode
-    if (parsed.error) {
-      console.warn("Omas: config error:", parsed.error)
-      if (!rootWheel) rootWheel = PieModel.demoWheel()
-    } else {
-      rootWheel = { title: "Omas", items: parsed.items }
-    }
-    // Refresh a wheel that is on screen only when we're still at the root
-    // and the editor isn't holding a working copy, so mid-navigation state
-    // isn't yanked out from under the user.
+  // Config rejection at any boundary (read or parse): keep the last good
+  // wheel on screen and say why.
+  function rejectConfig(msg) {
+    configError = msg
+    console.warn("Omas: config error:", msg)
+    if (!rootWheel) rootWheel = PieModel.demoWheel()
     if (opened && !editorOpen && navStack.length === 0) {
       wheel = rootWheel
       bumpWheel()
     }
   }
 
+  // Raw text funnels through here; PieModel.parseConfig enforces the
+  // document budgets before anything is materialized.
+  function applyConfig(raw) {
+    var parsed = PieModel.parseConfig(raw)
+    configError = parsed.error
+    configSelectionMode = parsed.selectionMode !== "" ? parsed.selectionMode : "click"
+    if (opened && payloadMode === "") selectionMode = configSelectionMode
+    if (parsed.error) {
+      rejectConfig(parsed.error)
+    } else {
+      rootWheel = { title: "Omas", items: parsed.items }
+      // Refresh a wheel that is on screen only when we're still at the root
+      // and the editor isn't holding a working copy, so mid-navigation
+      // state isn't yanked out from under the user.
+      if (opened && !editorOpen && navStack.length === 0) {
+        wheel = rootWheel
+        bumpWheel()
+      }
+    }
+  }
+
+  // ---- bounded config reader --------------------------------------------
+  // The config file is user-replaceable, so it is never loaded through the
+  // preloading FileView (which would materialize the whole document inside
+  // QML before any check could run). Instead a producer helper opens it
+  // with O_NOFOLLOW, fstats the descriptor, and reads at most MAX_FILE_CHARS
+  // bytes; QML only ever receives a bounded, regular-file document. The
+  // FileView below is a pure change watcher (blockLoading) plus the atomic
+  // write surface for the editor.
+  function loadConfig() {
+    if (readerProc.running) return
+    readerProc.command = [
+      "python3", "-c",
+      "import os,stat,sys\n" +
+      "p=sys.argv[1]; cap=" + PieModel.MAX_FILE_CHARS + "\n" +
+      "try:\n" +
+      "  fd=os.open(p,os.O_RDONLY|os.O_NOFOLLOW)\n" +
+      "except OSError as e:\n" +
+      "  sys.stdout.write('ERR:'+{2:'NOFILE',40:'SYMLINK'}.get(e.errno,'OPEN'+str(e.errno)))\n" +
+      "  raise SystemExit\n" +
+      "try:\n" +
+      "  st=os.fstat(fd)\n" +
+      "  if not stat.S_ISREG(st.st_mode): sys.stdout.write('ERR:NOTREG')\n" +
+      "  elif st.st_size>cap: sys.stdout.write('ERR:TOOBIG')\n" +
+      "  else:\n" +
+      "    d=os.read(fd,cap+1)\n" +
+      "    sys.stdout.write('ERR:TOOBIG' if len(d)>cap else d.decode('utf-8','replace'))\n" +
+      "finally:\n" +
+      "  os.close(fd)\n",
+      configFile.path
+    ]
+    readerProc.running = true
+  }
+
+  Process {
+    id: readerProc
+    command: ["true"]
+
+    stdout: StdioCollector {
+      id: readerOut
+      onStreamFinished: {
+        root.configReady = true
+        var out = readerOut.text
+        if (out.lastIndexOf("ERR:", 0) === 0) {
+          var code = out.substring(4)
+          if (code === "NOFILE") {
+            // No user config yet — the demo wheel doubles as the hint.
+            configError = ""
+            rootWheel = PieModel.demoWheel()
+            if (root.opened && !root.editorOpen && root.navStack.length === 0) {
+              root.wheel = rootWheel
+              root.bumpWheel()
+            }
+          } else if (code === "SYMLINK") {
+            root.rejectConfig("config path is a symlink; refusing to follow it")
+          } else if (code === "NOTREG") {
+            root.rejectConfig("config path is not a regular file")
+          } else if (code === "TOOBIG") {
+            root.rejectConfig(PieModel.limitError(
+              "over " + PieModel.MAX_FILE_CHARS + " characters"))
+          } else {
+            root.rejectConfig("config could not be read (" + code + ")")
+          }
+          return
+        }
+        root.applyConfig(out)
+      }
+    }
+  }
+
   FileView {
     id: configFile
     path: Quickshell.env("HOME") + "/.config/omarchy/extensions/omas.jsonc"
+    // Watch for replacements and serve atomic writes, but never load the
+    // document here — the bounded reader above owns reads.
     watchChanges: true
+    preload: false
+    blockLoading: true
     atomicWrites: true
     printErrors: false
-    onLoaded: {
-      configReady = true
-      root.applyConfig(text())
-    }
-    onLoadFailed: {
-      // No user config yet — the demo wheel doubles as the hint.
-      configReady = true
-      configError = ""
-      rootWheel = PieModel.demoWheel()
-      if (root.opened && root.navStack.length === 0) {
-        root.wheel = rootWheel
-        root.bumpWheel()
-      }
-    }
-    onFileChanged: reload()
+    onFileChanged: root.loadConfig()
   }
+
+  Component.onCompleted: loadConfig()
 
   PanelWindow {
     id: panel
