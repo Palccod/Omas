@@ -1,0 +1,56 @@
+// Omas wheel menu — https://github.com/Schneegans/Fly-Pie, but for Omarchy.
+//
+// Edit this file and save: Omas reloads it live, no restart needed.
+//
+//   name     label shown under the icon (required)
+//   icon     emoji, text glyph, or "/absolute/path/to/image" (optional)
+//   command  shell command to run — node becomes a leaf
+//   children nested nodes — node opens a sub-wheel; the tree can grow
+//            as deep as you like
+//
+// A node with both "command" and "children" prefers "children".
+//
+// selectionMode: "click" — hover a wedge, click to select.
+//                "stroke" — Fly-Pie marking mode: press and drag; pausing
+//                or making a sharp turn selects the wedge you dragged
+//                through, so you can chain through submenus in one motion.
+//                Drag into (or release over) the center to go back.
+//                One-off override: omarchy-shell shell summon palccod.omas
+//                '{"mode":"stroke"}'
+//
+// Prefer not to edit this by hand at all? Open the built-in editor:
+//   omarchy-shell shell summon palccod.omas '{"edit":true}'
+// (Saving from the editor rewrites this file — hand-written comments are
+// lost.)
+
+{
+  "selectionMode": "click",
+  "items": [
+    {
+      "name": "Web",
+      "icon": "🌐",
+      "children": [
+        { "name": "Firefox", "icon": "🦊", "command": "firefox" },
+        { "name": "Private window", "icon": "🕵️", "command": "firefox --private-window" }
+      ]
+    },
+    {
+      "name": "System",
+      "icon": "⚙️",
+      "children": [
+        { "name": "Lock", "icon": "🔒", "command": "omarchy system lock" },
+        {
+          "name": "Power",
+          "icon": "⏻",
+          "children": [
+            { "name": "Reboot", "icon": "🔄", "command": "systemctl reboot" },
+            { "name": "Shutdown", "icon": "⏹️", "command": "systemctl poweroff" }
+          ]
+        }
+      ]
+    },
+    { "name": "Terminal", "icon": "💻", "command": "alacritty" },
+    { "name": "Screenshot", "icon": "📸", "command": "omarchy capture screenshot" },
+    { "name": "Files", "icon": "📁", "command": "xdg-open ~" }
+  ]
+}

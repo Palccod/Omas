@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "palccod.omas",
+  "name": "Omas",
+  "version": "0.3.0",
+  "author": "palccod",
+  "license": "MIT",
+  "description": "Fly-Pie-style radial menu for Omarchy: user-defined categories open nested wheels of custom commands with custom icons.",
+  "keywords": ["pie", "radial", "wheel", "menu", "fly-pie", "marking", "quickshell", "quattro"],
+  "kinds": ["menu"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "menu": "Menu.qml"
+  }
+}
