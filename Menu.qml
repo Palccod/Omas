@@ -121,22 +121,20 @@ Item {
     clearStroke()
   }
 
-  // The editor's Save: write the config file and apply it immediately
-  // (the file watcher will also reload it, harmlessly).
+  // The editor's Save: write the config file through FileView (bounded,
+  // atomic temp-file + rename — no shell command is built) and apply it
+  // immediately. The file watcher will also reload it, harmlessly.
   function saveFromEditor(json) {
-    writeProc.command = ["bash", "-c",
-      "printf '%s' " + Util.shellQuote(json) + " > " + Util.shellQuote(configFile.path)]
-    writeProc.running = true
+    if (!json || json.length > PieModel.MAX_FILE_CHARS) {
+      configError = "wheel exceeds size limits; nothing was written"
+      return
+    }
+    configFile.setText(json)
     editorOpen = false
     applyConfig(json)
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     bumpWheel()
-  }
-
-  Process {
-    id: writeProc
-    command: ["true"]
   }
 
   function bumpWheel() {
@@ -307,6 +305,10 @@ Item {
     return -Math.PI / 2 + index * 2 * Math.PI / itemCount
   }
 
+  // Raw text from the file/producer boundary funnels through here;
+  // PieModel.parseConfig rejects oversized or over-budget documents
+  // before any of it is materialized, and a rejection keeps the last
+  // good rootWheel on screen.
   function applyConfig(raw) {
     var parsed = PieModel.parseConfig(raw)
     configError = parsed.error
@@ -331,6 +333,7 @@ Item {
     id: configFile
     path: Quickshell.env("HOME") + "/.config/omarchy/extensions/omas.jsonc"
     watchChanges: true
+    atomicWrites: true
     printErrors: false
     onLoaded: {
       configReady = true

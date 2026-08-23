@@ -136,6 +136,12 @@ this file too.
 
 - A node with `children` opens a sub-wheel; a node with a `command` runs
   it through bash.
+- **Sizes are bounded** to protect the long-lived shell: the config file
+  is capped at 256 KiB, 200 total items, 8 nesting levels, and per-field
+  lengths (name 64, icon/path 256, command 1024 characters). An
+  over-limit file is rejected whole — Omas keeps showing the last good
+  wheel and says "Config error" in the center — and the editor refuses to
+  save an over-limit tree.
 - **Icons**: emoji and text glyphs render directly. For images, use an
   absolute path. The plugin ships a starter pack in its install dir —
   `web.png`, `firefox.png`, `private.png`, `system.png`, `lock.png`,
@@ -171,7 +177,8 @@ the keybind you added in `bindings.lua`.
 - **No privileged behavior** — no sudo, polkit, services, or system files
 - **File access** — reads and writes only
   `~/.config/omarchy/extensions/omas.jsonc` (your own wheel definition);
-  no other files are touched
+  writes are atomic (temp file + rename) and size-capped. No other files
+  are touched
 - **Process execution** — runs exactly the shell commands you configure in
   your wheel, when you select them; nothing is executed automatically
 - **No data collection** — nothing leaves your machine; there are no

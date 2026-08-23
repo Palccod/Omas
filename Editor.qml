@@ -44,6 +44,7 @@ Item {
   property bool fieldsSilent: false     // suppress write-back while fields are (re)populated
   property int deleteIndex: -1          // pending delete in the browse list
   property int deleteChildIndex: -1     // pending delete in the form's inline children list
+  property string saveError: ""         // set when Save & close exceeds a budget
 
   readonly property bool formOpen: formStack.length > 0
   readonly property var formCtx: formStack.length > 0 ? formStack[formStack.length - 1] : null
@@ -58,6 +59,7 @@ Item {
     formStack = []
     deleteIndex = -1
     deleteChildIndex = -1
+    saveError = ""
     refreshList()
   }
 
@@ -211,9 +213,18 @@ Item {
   }
 
   function saveAll() {
+    // serializeConfig returns "" when the tree exceeds any budget; an
+    // over-budget wheel is never written to the config file.
+    var json = PieModel.serializeConfig(
+      { selectionMode: selectionMode }, itemsTree)
+    if (json === "") {
+      saveError = "Wheel exceeds limits — max " + PieModel.MAX_ITEMS + " items, "
+        + PieModel.MAX_DEPTH + " levels, 256 KiB. Remove some items first."
+      return
+    }
+    saveError = ""
     formStack = []
-    editorSaved(PieModel.serializeConfig(
-      { selectionMode: selectionMode }, itemsTree))
+    editorSaved(json)
   }
 
   // Escape, from Menu.qml's keyCatcher or from a focused field inside the
@@ -296,6 +307,17 @@ Item {
         }
       }
 
+      Text {
+        id: saveErrorText
+        width: parent.width
+        visible: editor.saveError !== ""
+        text: editor.saveError
+        color: Color.urgent
+        font.family: Style.font.menuFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+
       Dropdown {
         id: selectionDropdown
         width: parent.width
@@ -332,7 +354,9 @@ Item {
         id: listView
         width: parent.width
         height: parent.height - browseHeader.height - selectionDropdown.height
-          - levelRow.height - addButton.height - 4 * parent.spacing
+          - levelRow.height - addButton.height
+          - (saveErrorText.visible ? saveErrorText.height + parent.spacing : 0)
+          - 4 * parent.spacing
         clip: true
         spacing: Style.spacing.xs
         boundsBehavior: Flickable.StopAtBounds
@@ -488,7 +512,16 @@ Item {
           id: nameField
           width: parent.width
           placeholderText: "Name shown under the icon"
-          onTextChanged: if (!editor.fieldsSilent) editor.patchTopItem({ name: text })
+          // The kit's TextField has no maxLength; enforce the budget by
+          // truncating here (the write-back fires again with bounded text).
+          onTextChanged: {
+            if (editor.fieldsSilent) return
+            if (text.length > PieModel.MAX_NAME_CHARS) {
+              nameField.text = text.slice(0, PieModel.MAX_NAME_CHARS)
+              return
+            }
+            editor.patchTopItem({ name: text })
+          }
         }
 
         Text {
@@ -536,7 +569,14 @@ Item {
             width: parent.width - parent.spacing - Style.space(44)
             anchors.verticalCenter: parent.verticalCenter
             placeholderText: "🌐"
-            onTextChanged: if (!editor.fieldsSilent) editor.patchTopItem({ icon: text })
+            onTextChanged: {
+              if (editor.fieldsSilent) return
+              if (text.length > PieModel.MAX_ICON_CHARS) {
+                iconField.text = text.slice(0, PieModel.MAX_ICON_CHARS)
+                return
+              }
+              editor.patchTopItem({ icon: text })
+            }
           }
         }
 
@@ -567,7 +607,14 @@ Item {
             id: commandField
             width: parent.width
             placeholderText: "e.g. firefox --private-window"
-            onTextChanged: if (!editor.fieldsSilent) editor.patchTopItem({ command: text })
+            onTextChanged: {
+              if (editor.fieldsSilent) return
+              if (text.length > PieModel.MAX_COMMAND_CHARS) {
+                commandField.text = text.slice(0, PieModel.MAX_COMMAND_CHARS)
+                return
+              }
+              editor.patchTopItem({ command: text })
+            }
           }
         }
       }
