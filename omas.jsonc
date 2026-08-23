@@ -1,4 +1,4 @@
-// Omas wheel menu — Fly-Pie (https://github.com/Schneegans/Fly-Pie), but for Omarchy.
+// Omas wheel menu — a radial menu for Omarchy.
 //
 // Edit this file and save: Omas reloads it live, no restart needed.
 // (Saving from the built-in editor rewrites the file, so comments are lost.)
@@ -11,7 +11,7 @@
 //   children nested nodes — a node with children opens a sub-wheel; the
 //            tree can grow as deep as you like
 //
-//   selectionMode  "click" (hover + click) or "stroke" (Fly-Pie marking
+//   selectionMode  "click" (hover + click) or "stroke" (marking
 //                  mode: press, drag through items, pause or turn to select)
 {
   "selectionMode": "click",

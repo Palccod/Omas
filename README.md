@@ -2,12 +2,12 @@
 
 Too many keybindings? Use your mouse!
 
-**Omas** is a [Fly-Pie](https://github.com/Schneegans/Fly-Pie)-style radial
+**Omas** is a radial
 menu for [Omarchy](https://omarchy.org), built as a native Quickshell shell
 plugin. Your first wheel holds categories; each category opens a nested
 wheel of commands — and the tree grows exactly as deep as you want. Select
-by pointing and clicking, or Fly-Pie style by drawing a stroke through the
-items you want.
+by pointing and clicking, or by drawing a stroke through the items you
+want.
 
 ![Omas wheel](preview.png)
 
@@ -45,16 +45,11 @@ That clones the plugin into `~/.config/omarchy/plugins/palccod.omas/`,
 enables it, and asks the shell to pick it up. A sample wheel config is
 created at `~/.config/omarchy/extensions/omas.jsonc` on first launch.
 
-<details>
-<summary>Installing from a local checkout (development)</summary>
-
-```bash
-git clone https://github.com/Palccod/Omas.git
-cd Omas && ./setup/install.sh        # copies files + enables the plugin
-# or: ./setup/install.sh --link      # symlink instead, for live editing
-omarchy restart shell                # make sure the fresh code is loaded
-```
-</details>
+For development, clone the repo into
+`~/.config/omarchy/plugins/palccod.omas/` yourself, enable it with
+`omarchy plugin enable palccod.omas`, and run
+`omarchy-shell shell rescanPlugins` (or `omarchy restart shell`) after
+editing files.
 
 ## Keybind — SUPER + Z
 
@@ -154,14 +149,12 @@ items](assets/add-item.png) ![sub-wheels](assets/add-sub-wheel.png)
 
 ## Update
 
-Installed with `omarchy plugin add`:
-
 ```bash
 omarchy plugin update palccod.omas
 ```
 
-From a local checkout: `git pull && ./setup/install.sh`. If the shell
-somehow keeps running old code after an update, `omarchy restart shell`.
+If the shell somehow keeps running old code after an update,
+`omarchy restart shell`.
 
 ## Removal
 
@@ -171,6 +164,18 @@ omarchy plugin remove palccod.omas          # disables + deletes the plugin
 
 Then remove your config (`~/.config/omarchy/extensions/omas.jsonc`) and
 the keybind you added in `bindings.lua`.
+
+## Security & privacy
+
+- **No network access** — Omas never makes network requests
+- **No privileged behavior** — no sudo, polkit, services, or system files
+- **File access** — reads and writes only
+  `~/.config/omarchy/extensions/omas.jsonc` (your own wheel definition);
+  no other files are touched
+- **Process execution** — runs exactly the shell commands you configure in
+  your wheel, when you select them; nothing is executed automatically
+- **No data collection** — nothing leaves your machine; there are no
+  telemetry, clipboard, or credential reads
 
 ## Development notes
 
@@ -186,8 +191,6 @@ the keybind you added in `bindings.lua`.
 
 ## Credits
 
-- [Fly-Pie](https://github.com/Schneegans/Fly-Pie) by Simon Schneegans —
-  the interaction design Omas reimplements for Omarchy
 - Built on [Quickshell](https://quickshell.outfoxxed.me) and Omarchy's
   shell plugin API
 

@@ -5,8 +5,8 @@
   "version": "0.4.0",
   "author": "palccod",
   "license": "MIT",
-  "description": "Fly-Pie-style radial menu for Omarchy: user-defined categories open nested wheels of custom commands with custom icons.",
-  "keywords": ["pie", "radial", "wheel", "menu", "fly-pie", "marking", "quickshell", "quattro"],
+  "description": "Radial menu for Omarchy: user-defined categories open nested wheels of custom commands with custom icons.",
+  "keywords": ["pie", "radial", "wheel", "menu", "marking", "quickshell", "quattro"],
   "kinds": ["menu"],
   "keepLoaded": true,
   "entryPoints": {

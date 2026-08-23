@@ -6,7 +6,7 @@ import qs.Commons
 import qs.Ui
 import "PieModel.js" as PieModel
 
-// Omas — a Fly-Pie-style radial menu for the Omarchy shell.
+// Omas — a radial menu for the Omarchy shell.
 //
 // The first wheel holds user-defined categories; pointing at one and
 // clicking opens its sub-wheel (the tree grows as deep as the user's
@@ -32,7 +32,7 @@ Item {
   property string configError: ""
 
   // Selection mode: "click" — hover a wedge, click to select (v0.1 behavior).
-  // "stroke" — Fly-Pie marking mode: press and drag; pausing (dwell) or a
+  // "stroke" — marking mode: press and drag; pausing (dwell) or a
   // sharp turn selects the wedge you dragged through, chaining through
   // submenus without releasing. Drag into (or release over) the hub to go
   // back. The active mode comes from the summon payload's "mode" field or
