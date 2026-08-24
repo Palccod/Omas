@@ -30,33 +30,27 @@ function stripJsonc(raw) {
 }
 
 // Parse a full config document. Accepts either a top-level array or an
-// object with an "items" (or "children") array. Returns
-// { items, error, selectionMode } — selectionMode is "click" or "stroke",
-// or "" when unset/invalid. A node with an explicit (possibly empty)
-// "children" array is kept as an empty sub-wheel — the editor relies on
-// this so new wheels survive a save/reload round-trip before their first
-// child is added.
+// object with an "items" (or "children") array. Returns { items, error }.
+// Unknown keys (including the removed "selectionMode") are ignored.
+// A node with an explicit (possibly empty) "children" array is kept as an
+// empty sub-wheel — the editor relies on this so new wheels survive a
+// save/reload round-trip before their first child is added.
 function parseConfig(raw) {
   if (String(raw || "").length > MAX_FILE_CHARS)
-    return { items: [], error: limitError("over " + MAX_FILE_CHARS + " characters"), selectionMode: "" }
+    return { items: [], error: limitError("over " + MAX_FILE_CHARS + " characters") }
 
   var data
   try {
     data = JSON.parse(stripJsonc(raw))
   } catch (e) {
-    return { items: [], error: String(e), selectionMode: "" }
+    return { items: [], error: String(e) }
   }
 
   var root = null
-  var selectionMode = ""
   if (Array.isArray(data)) root = data
   else if (data && Array.isArray(data.items)) root = data.items
   else if (data && Array.isArray(data.children)) root = data.children
-  if (!root) return { items: [], error: "expected an array of items, or { \"items\": [...] }", selectionMode: "" }
-  if (data && !Array.isArray(data) && typeof data.selectionMode === "string") {
-    var mode = data.selectionMode.toLowerCase()
-    if (mode === "click" || mode === "stroke") selectionMode = mode
-  }
+  if (!root) return { items: [], error: "expected an array of items, or { \"items\": [...] }" }
 
   var items = []
   var count = 0
@@ -73,17 +67,17 @@ function parseConfig(raw) {
       var name = String(value.name || value.label || ("Item " + (i + 1)))
       var icon = String(value.icon || "")
       if (name.length > MAX_NAME_CHARS)
-        return { items: [], error: limitError("item name over " + MAX_NAME_CHARS + " characters"), selectionMode: "" }
+        return { items: [], error: limitError("item name over " + MAX_NAME_CHARS + " characters") }
       if (icon.length > MAX_ICON_CHARS)
-        return { items: [], error: limitError("icon over " + MAX_ICON_CHARS + " characters"), selectionMode: "" }
+        return { items: [], error: limitError("icon over " + MAX_ICON_CHARS + " characters") }
       if (command.length > MAX_COMMAND_CHARS)
-        return { items: [], error: limitError("command over " + MAX_COMMAND_CHARS + " characters"), selectionMode: "" }
+        return { items: [], error: limitError("command over " + MAX_COMMAND_CHARS + " characters") }
       if (++count > MAX_ITEMS)
-        return { items: [], error: limitError("more than " + MAX_ITEMS + " items"), selectionMode: "" }
+        return { items: [], error: limitError("more than " + MAX_ITEMS + " items") }
       var item = { name: name, icon: icon, command: command, children: [] }
       if (hadChildren) {
         if (frame.depth + 1 > MAX_DEPTH)
-          return { items: [], error: limitError("nesting deeper than " + MAX_DEPTH + " levels"), selectionMode: "" }
+          return { items: [], error: limitError("nesting deeper than " + MAX_DEPTH + " levels") }
         stack.push({ src: value.children, out: item.children, depth: frame.depth + 1 })
       }
       frame.out.push(item)
@@ -91,8 +85,8 @@ function parseConfig(raw) {
   }
 
   if (items.length === 0)
-    return { items: [], error: "no usable items found (need \"command\" or \"children\")", selectionMode: selectionMode }
-  return { items: items, error: "", selectionMode: selectionMode }
+    return { items: [], error: "no usable items found (need \"command\" or \"children\")" }
+  return { items: items, error: "" }
 }
 
 // True when a (possibly editor-grown) tree fits every budget.
@@ -121,12 +115,9 @@ function withinBudgets(items) {
 // "" when the tree exceeds any budget (the caller must not write it).
 // Only writes fields the editor owns; user comments in the file are lost
 // on save (documented in the README).
-function serializeConfig(settings, items) {
+function serializeConfig(items) {
   if (!withinBudgets(items)) return ""
-  var out = {
-    selectionMode: settings.selectionMode === "stroke" ? "stroke" : "click",
-    items: []
-  }
+  var out = { items: [] }
   for (var i = 0; i < items.length; i++) out.items.push(serializeItem(items[i]))
   var json = JSON.stringify(out, null, 2) + "\n"
   return json.length <= MAX_FILE_CHARS ? json : ""

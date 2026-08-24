@@ -28,7 +28,6 @@ Item {
 
   // Set by Menu.qml via beginEdit().
   property var itemsTree: []
-  property string selectionMode: "click"
 
   signal editorSaved(string json)
   signal editorCanceled()
@@ -55,9 +54,8 @@ Item {
   readonly property var formCtx: formStack.length > 0 ? formStack[formStack.length - 1] : null
   readonly property var formItem: formCtx ? formCtx.item : null
 
-  function beginEdit(tree, mode) {
+  function beginEdit(tree) {
     itemsTree = tree
-    selectionMode = mode
     levelStack = []
     currentItems = itemsTree
     currentName = "root"
@@ -220,8 +218,7 @@ Item {
   function saveAll() {
     // serializeConfig returns "" when the tree exceeds any budget; an
     // over-budget wheel is never written to the config file.
-    var json = PieModel.serializeConfig(
-      { selectionMode: selectionMode }, itemsTree)
+    var json = PieModel.serializeConfig(itemsTree)
     if (json === "") {
       saveError = "Wheel exceeds limits — max " + PieModel.MAX_ITEMS + " items, "
         + PieModel.MAX_DEPTH + " levels, 256 KiB. Remove some items first."
@@ -510,54 +507,6 @@ Item {
           wrapMode: Text.WordWrap
         }
 
-        PanelSeparator { width: parent.width; foreground: editor.foreground }
-
-        PanelSectionHeader {
-          width: parent.width
-          text: "SELECTION"
-          foreground: editor.foreground
-        }
-        Text {
-          width: parent.width
-          text: "How an item is chosen in the wheel"
-          color: editor.dimmed
-          font.family: Style.font.family
-          font.pixelSize: Style.font.caption
-        }
-
-        Row {
-          id: selectionRow
-          width: parent.width
-          spacing: Style.space(6)
-
-          Button {
-            width: (selectionRow.width - selectionRow.spacing) / 2
-            height: Style.spacing.controlHeight
-            text: "Click"
-            tooltipText: "Point and click an item"
-            selected: editor.selectionMode === "click"
-            bordered: true
-            focusable: true
-            foreground: editor.foreground
-            accent: editor.accent
-            onClicked: editor.selectionMode = "click"
-          }
-          Button {
-            width: (selectionRow.width - selectionRow.spacing) / 2
-            height: Style.spacing.controlHeight
-            text: "Stroke"
-            tooltipText: "Draw a stroke through items"
-            selected: editor.selectionMode === "stroke"
-            bordered: true
-            focusable: true
-            foreground: editor.foreground
-            accent: editor.accent
-            onClicked: editor.selectionMode = "stroke"
-          }
-        }
-
-        PanelSeparator { width: parent.width; foreground: editor.foreground }
-
         Item {
           id: levelRow
           width: parent.width
@@ -804,29 +753,33 @@ Item {
 
       Row {
         id: formButtons
+        anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        spacing: Style.space(4)
-        layoutDirection: Qt.RightToLeft
+        spacing: Style.space(6)
 
         Button {
-          text: "Save"
+          width: (parent.width - parent.spacing) / 2
           height: Style.spacing.controlHeight
+          text: "Cancel"
+          tooltipText: "Discard and step back"
+          bordered: true
+          focusable: true
+          foreground: editor.foreground
+          accent: editor.accent
+          onClicked: editor.cancelForm()
+        }
+        Button {
+          width: (parent.width - parent.spacing) / 2
+          height: Style.spacing.controlHeight
+          text: "Save"
+          tooltipText: "Keep this item"
           active: true
           bordered: true
           focusable: true
           foreground: editor.foreground
           accent: editor.accent
           onClicked: editor.saveForm()
-        }
-        Button {
-          text: "Cancel"
-          height: Style.spacing.controlHeight
-          bordered: true
-          focusable: true
-          foreground: editor.foreground
-          accent: editor.accent
-          onClicked: editor.cancelForm()
         }
       }
 
@@ -845,6 +798,7 @@ Item {
         spacing: Style.space(8)
 
         PanelSectionHeader {
+          id: childSectionHeader
           width: parent.width
           text: "ITEMS INSIDE"
           foreground: editor.foreground
@@ -861,10 +815,25 @@ Item {
           font.pixelSize: Style.font.caption
         }
 
+        Button {
+          id: childAddButton
+          width: parent.width
+          height: Style.spacing.controlHeight
+          iconText: "+"
+          text: "Add item"
+          tooltipText: "Add an item to this wheel"
+          bordered: true
+          focusable: true
+          foreground: editor.foreground
+          accent: editor.accent
+          onClicked: editor.openChildForm(editor.formItem && editor.formItem.children ? editor.formItem.children.length : 0, true)
+        }
+
         ListView {
           id: childList
           width: parent.width
-          height: parent.height - childHeader.height - childAddButton.height - 3 * parent.spacing
+          height: parent.height - childSectionHeader.height - childHeader.height
+            - childAddButton.height - 3 * parent.spacing
           clip: true
           spacing: Style.space(4)
           boundsBehavior: Flickable.StopAtBounds
@@ -895,19 +864,6 @@ Item {
           }
         }
 
-        Button {
-          id: childAddButton
-          width: parent.width
-          height: Style.spacing.controlHeight
-          iconText: "+"
-          text: "Add item"
-          tooltipText: "Add an item to this wheel"
-          bordered: true
-          focusable: true
-          foreground: editor.foreground
-          accent: editor.accent
-          onClicked: editor.openChildForm(editor.formItem && editor.formItem.children ? editor.formItem.children.length : 0, true)
-        }
       }
     }
   }

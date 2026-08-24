@@ -11,8 +11,9 @@ import "PieModel.js" as PieModel
 // The first wheel holds user-defined categories; pointing at one and
 // clicking opens its sub-wheel (the tree grows as deep as the user's
 // ~/.config/omarchy/extensions/omas.jsonc defines). Leaf nodes run their
-// command through bash. This first version selects by pointing and
-// clicking inside wedge sectors; gesture (marking) mode comes later.
+// command detached. Selection is by pointing and clicking inside wedge
+// sectors; the hub goes back one level and, on the root wheel, opens
+// the built-in editor.
 
 Item {
   id: root
@@ -31,33 +32,9 @@ Item {
   property bool configReady: false
   property string configError: ""
 
-  // Selection mode: "click" — hover a wedge, click to select (v0.1 behavior).
-  // "stroke" — marking mode: press and drag; pausing (dwell) or a
-  // sharp turn selects the wedge you dragged through, chaining through
-  // submenus without releasing. Drag into (or release over) the hub to go
-  // back. The active mode comes from the summon payload's "mode" field or
-  // falls back to the config's "selectionMode".
-  property string selectionMode: "click"
-  property string configSelectionMode: "click"
-  property string payloadMode: ""
-
   // Summon payload {"edit": true} opens the wheel editor instead of the
   // pie. The editor edits a working copy and writes omas.jsonc on save.
   property bool editorOpen: false
-
-  // ---- stroke (marking mode) state ------------------------------------
-  property bool stroking: false
-  property var trailPoints: []       // ink trail, wheelHolder coordinates
-  property int trailSerial: 0
-  property real strokeX: 0
-  property real strokeY: 0
-  property real sampleX: 0           // start of the current straight segment
-  property real sampleY: 0
-  property real lastDirX: 0          // direction of the previous segment
-  property real lastDirY: 0
-  property bool haveLastDir: false
-  property real strokeDistSinceEvent: 0
-  property int lastStrokeWedge: -1
 
   readonly property var items: wheel ? wheel.items : []
   readonly property int itemCount: items.length
@@ -65,8 +42,6 @@ Item {
 
   function ping() {
     return JSON.stringify({
-      mode: selectionMode,
-      configMode: configSelectionMode,
       editorOpen: editorOpen,
       formDepth: editor.formStack.length,
       opened: opened,
@@ -90,13 +65,9 @@ Item {
     if (!configReady) loadConfig()
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
-    var mode = String(payload.selectionMode || payload.mode || "").toLowerCase()
-    payloadMode = (mode === "stroke" || mode === "click") ? mode : ""
-    selectionMode = payloadMode !== "" ? payloadMode : configSelectionMode
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     opened = true
-    clearStroke()
     if (payload.edit === true) {
       enterEditor()
       return
@@ -109,7 +80,7 @@ Item {
   function enterEditor() {
     editorOpen = true
     var tree = rootWheel ? rootWheel.items : PieModel.demoWheel().items
-    editor.beginEdit(JSON.parse(JSON.stringify(tree)), selectionMode)
+    editor.beginEdit(JSON.parse(JSON.stringify(tree)))
   }
 
   function close() {
@@ -118,7 +89,6 @@ Item {
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     hoveredIndex = -1
-    clearStroke()
   }
 
   // The editor's Save: write the config file through FileView (bounded,
@@ -169,125 +139,6 @@ Item {
     bumpWheel()
   }
 
-  // ---- stroke engine (marking mode) ------------------------------------
-
-  function distFromCenter(x, y) {
-    var dx = x - wheelHolder.width / 2
-    var dy = y - wheelHolder.height / 2
-    return Math.sqrt(dx * dx + dy * dy)
-  }
-
-  function turnAngleDeg(x1, y1, x2, y2) {
-    var dot = x1 * x2 + y1 * y2
-    var m1 = Math.sqrt(x1 * x1 + y1 * y1)
-    var m2 = Math.sqrt(x2 * x2 + y2 * y2)
-    if (m1 === 0 || m2 === 0) return 0
-    var cos = dot / (m1 * m2)
-    cos = Math.max(-1, Math.min(1, cos))
-    return Math.acos(cos) * 180 / Math.PI
-  }
-
-  function clearStroke() {
-    stroking = false
-    haveLastDir = false
-    strokeDistSinceEvent = 0
-    lastStrokeWedge = -1
-    trailPoints = []
-    trailSerial++
-    dwellTimer.stop()
-  }
-
-  function beginStroke(x, y) {
-    stroking = true
-    strokeX = x
-    strokeY = y
-    sampleX = x
-    sampleY = y
-    haveLastDir = false
-    strokeDistSinceEvent = 0
-    lastStrokeWedge = hoveredIndex
-    trailPoints = [{ x: x, y: y }]
-    trailSerial++
-    dwellTimer.restart()
-  }
-
-  // Forget recent motion so a fresh selection needs new intent — called
-  // after every select/go-back so one gesture never triggers twice.
-  function resetStrokeMotion() {
-    sampleX = strokeX
-    sampleY = strokeY
-    haveLastDir = false
-    strokeDistSinceEvent = 0
-    lastStrokeWedge = -1
-    dwellTimer.restart()
-  }
-
-  function updateStroke(x, y) {
-    var dx = x - strokeX
-    var dy = y - strokeY
-    var moved = Math.sqrt(dx * dx + dy * dy)
-    if (moved < 2) return
-    strokeX = x
-    strokeY = y
-    strokeDistSinceEvent += moved
-    var last = trailPoints.length > 0 ? trailPoints[trailPoints.length - 1] : null
-    if (!last || Math.abs(x - last.x) + Math.abs(y - last.y) >= 4) {
-      trailPoints.push({ x: x, y: y })
-      if (trailPoints.length > 220) trailPoints.shift()
-      trailSerial++
-    }
-    dwellTimer.restart()
-
-    // Sample straight segments: once we've traveled far enough from the
-    // segment start, compare directions. A sharp turn after enough travel
-    // means "the wedge I just dragged through" — select it.
-    var sdx = x - sampleX
-    var sdy = y - sampleY
-    var sdist = Math.sqrt(sdx * sdx + sdy * sdy)
-    if (sdist >= 8) {
-      if (haveLastDir && strokeDistSinceEvent > 24
-          && turnAngleDeg(lastDirX, lastDirY, sdx, sdy) > 45) {
-        var target = hoveredIndex >= 0 ? hoveredIndex : lastStrokeWedge
-        resetStrokeMotion()
-        if (target >= 0) openItem(target)
-        return
-      }
-      lastDirX = sdx
-      lastDirY = sdy
-      haveLastDir = true
-      sampleX = x
-      sampleY = y
-    }
-  }
-
-  function endStroke(x, y) {
-    if (!stroking) return
-    stroking = false
-    dwellTimer.stop()
-    if (hoveredIndex >= 0) {
-      openItem(hoveredIndex)
-    } else if (distFromCenter(x, y) < hubRadius) {
-      goBack()
-    } else {
-      close()
-    }
-  }
-
-  Timer {
-    id: dwellTimer
-    interval: 400
-    onTriggered: {
-      if (!root.stroking || !root.opened) return
-      if (root.hoveredIndex >= 0) {
-        root.resetStrokeMotion()
-        root.openItem(root.hoveredIndex)
-      } else if (root.distFromCenter(root.strokeX, root.strokeY) < root.hubRadius) {
-        root.resetStrokeMotion()
-        root.goBack()
-      }
-    }
-  }
-
   // Map a point in wheel coordinates to a wedge index, or -1 when the
   // pointer is inside the hub or outside the ring.
   function wedgeIndexAt(x, y) {
@@ -322,8 +173,6 @@ Item {
   function applyConfig(raw) {
     var parsed = PieModel.parseConfig(raw)
     configError = parsed.error
-    configSelectionMode = parsed.selectionMode !== "" ? parsed.selectionMode : "click"
-    if (opened && payloadMode === "") selectionMode = configSelectionMode
     if (parsed.error) {
       rejectConfig(parsed.error)
     } else {
@@ -454,7 +303,6 @@ Item {
           // the editor returns to the wheel — the menu stays open.
           editor.handleKey(event)
         } else {
-          root.clearStroke()
           root.goBack()
         }
         event.accepted = true
@@ -552,50 +400,11 @@ Item {
           id: ringHit
           anchors.fill: parent
           hoverEnabled: true
-          onPressed: function(mouse) {
-            if (root.selectionMode === "stroke") root.beginStroke(mouse.x, mouse.y)
-          }
           onPositionChanged: function(mouse) {
             root.hoveredIndex = root.wedgeIndexAt(mouse.x, mouse.y)
-            if (root.stroking) root.updateStroke(mouse.x, mouse.y)
-          }
-          onReleased: function(mouse) {
-            if (root.selectionMode === "stroke") root.endStroke(mouse.x, mouse.y)
           }
           onExited: root.hoveredIndex = -1
-          onClicked: if (root.selectionMode === "click" && root.hoveredIndex >= 0)
-            root.openItem(root.hoveredIndex)
-        }
-
-        // The ink trail of the current stroke. Kept in wheelHolder
-        // coordinates, which stay stable across wheel changes, so a single
-        // stroke chains visually through submenus until the menu closes.
-        Canvas {
-          id: trailCanvas
-          anchors.fill: parent
-          visible: root.selectionMode === "stroke"
-          property int paintSerial: root.trailSerial
-          onPaintSerialChanged: requestPaint()
-          onVisibleChanged: if (visible) requestPaint()
-
-          onPaint: {
-            var ctx = getContext("2d")
-            ctx.reset()
-            if (root.trailPoints.length < 2) return
-            ctx.lineJoin = "round"
-            ctx.lineCap = "round"
-            ctx.strokeStyle = Color.accent
-            for (var pass = 0; pass < 2; pass++) {
-              ctx.globalAlpha = pass === 0 ? 0.22 : 0.75
-              ctx.lineWidth = pass === 0 ? 12 : 4
-              ctx.beginPath()
-              ctx.moveTo(root.trailPoints[0].x, root.trailPoints[0].y)
-              for (var i = 1; i < root.trailPoints.length; i++)
-                ctx.lineTo(root.trailPoints[i].x, root.trailPoints[i].y)
-              ctx.stroke()
-            }
-            ctx.globalAlpha = 1
-          }
+          onClicked: if (root.hoveredIndex >= 0) root.openItem(root.hoveredIndex)
         }
 
         Repeater {
@@ -677,16 +486,11 @@ Item {
             anchors.fill: parent
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
-            // In stroke mode the ring must own the press so a drag that
-            // crosses the hub keeps its grab (hub drag = go back).
-            onPressed: function(mouse) {
-              if (root.selectionMode === "stroke") mouse.accepted = false
-            }
             onPositionChanged: root.hoveredIndex = -1
-            // Deeper wheels: back. Root wheel in click mode: the hub is
-            // the door to the settings/editor panel.
+            // Deeper wheels: back. Root wheel: the hub is the door to
+            // the settings/editor panel.
             onClicked: {
-              if (root.canGoBack || root.selectionMode !== "click") root.goBack()
+              if (root.canGoBack) root.goBack()
               else root.enterEditor()
             }
           }
@@ -721,9 +525,7 @@ Item {
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: root.selectionMode === "stroke"
-                ? (root.canGoBack ? "drag to center = back" : "drag to select")
-                : (root.canGoBack ? "back" : "settings")
+              text: root.canGoBack ? "back" : "settings"
               color: Util.alpha(Color.menu.text, 0.5)
               font.family: Style.font.menuFamily
               font.pixelSize: Style.font.caption

@@ -10,11 +10,7 @@
 //   command  shell command to run — a node with a command is a leaf
 //   children nested nodes — a node with children opens a sub-wheel; the
 //            tree can grow as deep as you like
-//
-//   selectionMode  "click" (hover + click) or "stroke" (marking
-//                  mode: press, drag through items, pause or turn to select)
 {
-  "selectionMode": "click",
   "items": [
     {
       "name": "Web",

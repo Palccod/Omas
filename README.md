@@ -5,9 +5,8 @@ Too many keybindings? Use your mouse!
 **Omas** is a radial
 menu for [Omarchy](https://omarchy.org), built as a native Quickshell shell
 plugin. Your first wheel holds categories; each category opens a nested
-wheel of commands — and the tree grows exactly as deep as you want. Select
-by pointing and clicking, or by drawing a stroke through the items you
-want.
+wheel of commands — and the tree grows exactly as deep as you want. Point
+at an item and click — that's all there is to it.
 
 ![Omas wheel](preview.png)
 
@@ -16,10 +15,6 @@ want.
 - **Custom command wheels** — categories, sub-wheels, commands; as many
   items and levels as you like (defined in one JSONC file, hot-reloaded on
   save)
-- **Two selection modes** — *Click* (hover a wedge, click to open) and
-  *Stroke* (marking mode: press and drag through items; pausing or making a
-  sharp turn selects, chaining through sub-wheels without releasing — drag
-  into the center to go back)
 - **Custom icons** — emoji, text glyphs, or image files (a starter icon
   pack ships with the plugin)
 - **Built-in editor** — open it right from the wheel's center; add, edit,
@@ -78,7 +73,6 @@ Handy IPC variants:
 
 ```bash
 omarchy-shell shell summon palccod.omas               # open the wheel
-omarchy-shell shell summon palccod.omas '{"mode":"stroke"}'   # stroke mode once
 omarchy-shell shell summon palccod.omas '{"edit":true}'       # open the editor
 omarchy-shell shell hide palccod.omas                 # dismiss
 ```
@@ -91,12 +85,6 @@ omarchy-shell shell hide palccod.omas                 # dismiss
 3. Point at a command and click — it runs and the wheel closes.
 4. At the root wheel, the center circle says **settings**: click it to
    open the wheel editor.
-
-In **stroke mode** (set it in the editor's *Selection* section, or summon
-with `{"mode":"stroke"}`): press anywhere and drag through the items —
-stop (dwell) or make a sharp turn to select, keep the button held to
-chain through sub-wheels, drag into the center to go back. Release over
-nothing to dismiss.
 
 ### The editor
 
@@ -121,7 +109,6 @@ this file too.
 
 ```jsonc
 {
-  "selectionMode": "click",          // or "stroke"
   "items": [
     {
       "name": "Web",
@@ -190,15 +177,14 @@ the keybind you added in `bindings.lua`.
 
 ## Development notes
 
-- QML sources: `Menu.qml` (wheel, stroke engine, IPC surface),
+- QML sources: `Menu.qml` (wheel, IPC surface),
   `Editor.qml` (settings UI), `PieModel.js` (config parsing/serialization)
 - Lint with `qmllint -I /usr/share/omarchy/shell *.qml`, validate with
   `omarchy plugin validate <folder>`
 - `omarchy-shell shell call palccod.omas ping x` returns a JSON state
   dump — handy for checking which code the shell is actually running
-- Roadmap ideas: turbo mode (stroke selection while holding a modifier),
-  item reordering/duplicate in the editor, per-item themes (sizes, wedge
-  colors), opening at the cursor position
+- Roadmap ideas: item reordering/duplicate in the editor, per-item
+  themes (sizes, wedge colors), opening at the cursor position
 
 ## Credits
 

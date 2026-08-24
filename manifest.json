@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "id": "palccod.omas",
   "name": "Omas",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": "palccod",
   "license": "MIT",
   "description": "Radial menu for Omarchy: user-defined categories open nested wheels of custom commands with custom icons.",
-  "keywords": ["pie", "radial", "wheel", "menu", "marking", "quickshell", "quattro"],
+  "keywords": ["pie", "radial", "wheel", "menu", "quickshell", "quattro"],
   "kinds": ["menu"],
   "keepLoaded": true,
   "entryPoints": {
