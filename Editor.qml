@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls as QQC
 import qs.Commons
 import qs.Ui
 import "PieModel.js" as PieModel
@@ -17,6 +18,10 @@ import "PieModel.js" as PieModel
 // Cancel only ever steps back one level; at the top it leaves the editor
 // and returns to the menu wheel (Menu.qml keeps the menu open). Saving
 // rewrites the file, so hand-written comments in it are lost.
+//
+// Styling follows the shell's panel vocabulary (section headers,
+// separators, segmented choices, bordered controls) like the built-in bar
+// panels, while staying a menu overlay rather than a bar panel.
 
 Item {
   id: editor
@@ -249,224 +254,398 @@ Item {
   readonly property color dimmed: Util.alpha(Color.menu.text, 0.55)
   readonly property color accent: Color.accent
 
+  // Circular badge that renders an item's icon — emoji/glyph as text, or
+  // an image when the icon is an absolute path. Shared by the browse rows,
+  // the form's inline children rows, and the form's icon preview.
+  component IconChip: Item {
+    id: chip
+
+    property string icon: ""
+    property real chipSize: Style.space(34)
+
+    width: chipSize
+    height: chipSize
+
+    Rectangle {
+      anchors.fill: parent
+      radius: width / 2
+      color: Style.hoverFill
+      border.color: Color.menu.border
+      border.width: 1
+    }
+
+    Text {
+      visible: chip.icon.charAt(0) !== "/"
+      anchors.centerIn: parent
+      text: visible ? chip.icon : ""
+      color: editor.foreground
+      font.pixelSize: Math.round(chip.chipSize * 0.52)
+    }
+
+    Image {
+      visible: chip.icon.charAt(0) === "/"
+      anchors.centerIn: parent
+      width: Math.round(chip.chipSize * 0.7)
+      height: width
+      fillMode: Image.PreserveAspectFit
+      sourceSize.width: width * Screen.devicePixelRatio
+      sourceSize.height: height * Screen.devicePixelRatio
+      source: visible ? chip.icon : ""
+      asynchronous: true
+    }
+  }
+
+  // Field label in the body font, like the input labels in shell panels.
+  component FieldLabel: Text {
+    color: editor.foreground
+    font.family: Style.font.family
+    font.pixelSize: Style.font.body
+  }
+
+  // One row of an item list: icon chip, name + detail, and the row actions.
+  // Used by both the browse list and a wheel form's inline children.
+  component ItemRow: Rectangle {
+    id: row
+
+    property var item: ({})
+    property bool wheel: false
+    property var list
+    property int rowIndex: 0
+    property bool allowDrill: false
+
+    signal activated(int index)
+    signal drilled(int index)
+    signal edited(int index)
+    signal removed(int index)
+
+    width: row.list ? row.list.width : 0
+    height: Style.space(46)
+    radius: Style.cornerRadius
+    color: rowMouse.containsMouse ? Style.hoverFill : "transparent"
+
+    MouseArea {
+      id: rowMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      onClicked: row.activated(row.rowIndex)
+    }
+
+    IconChip {
+      anchors.left: parent.left
+      anchors.leftMargin: Style.spacing.sm
+      anchors.verticalCenter: parent.verticalCenter
+      icon: row.item.icon || ""
+      chipSize: Style.space(34)
+    }
+
+    Column {
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(34) + Style.spacing.lg
+      anchors.right: rowActions.left
+      anchors.rightMargin: Style.spacing.sm
+      anchors.verticalCenter: parent.verticalCenter
+
+      Text {
+        width: parent.width
+        text: row.item.name || ""
+        color: editor.foreground
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        font.weight: Font.Medium
+        elide: Text.ElideRight
+      }
+      Text {
+        width: parent.width
+        text: row.wheel
+          ? ((row.item.children ? row.item.children.length : 0)
+            + ((row.item.children && row.item.children.length === 1) ? " item" : " items"))
+          : ("→ " + (row.item.command || ""))
+        color: editor.dimmed
+        font.family: Style.font.family
+        font.pixelSize: Style.font.caption
+        elide: Text.ElideMiddle
+      }
+    }
+
+    Row {
+      id: rowActions
+      anchors.right: parent.right
+      anchors.rightMargin: Style.spacing.xs
+      anchors.verticalCenter: parent.verticalCenter
+      spacing: Style.space(4)
+
+      Button {
+        iconText: "›"
+        tooltipText: "Open wheel"
+        visible: row.allowDrill && row.wheel
+        height: Style.spacing.controlHeight
+        bordered: true
+        focusable: true
+        foreground: editor.foreground
+        accent: editor.accent
+        onClicked: row.drilled(row.rowIndex)
+      }
+      Button {
+        iconText: "✎"
+        tooltipText: "Edit"
+        height: Style.spacing.controlHeight
+        bordered: true
+        focusable: true
+        foreground: editor.foreground
+        accent: editor.accent
+        onClicked: row.edited(row.rowIndex)
+      }
+      Button {
+        iconText: "✕"
+        tooltipText: "Remove"
+        height: Style.spacing.controlHeight
+        bordered: true
+        focusable: true
+        foreground: editor.foreground
+        accent: editor.accent
+        onClicked: row.removed(row.rowIndex)
+      }
+    }
+  }
+
   BorderSurface {
     id: card
     anchors.centerIn: parent
     width: Math.min(parent.width - Style.gapsOut * 2, Style.space(480))
-    height: Math.min(parent.height - Style.gapsOut * 4, Style.space(600))
+    height: Math.min(parent.height - Style.gapsOut * 4, Style.space(640))
     radius: Style.cornerRadius
     color: Color.menu.background
     borderSpec: Border.surfaceSpec("menu", "border", Color.menu.border, Math.max(1, Style.space(2)))
-    padding: Style.spacing.md
+    padding: Style.space(14)
 
     MouseArea { anchors.fill: parent; onClicked: {} }
 
     // ---- browse view ----------------------------------------------------
-    Column {
+    Item {
       anchors.fill: parent
       anchors.margins: card.padding
-      spacing: Style.spacing.sm
       visible: !editor.formOpen
 
-      Row {
-        id: browseHeader
-        width: parent.width
-        spacing: Style.spacing.sm
+      Column {
+        id: browseTop
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        spacing: Style.space(8)
 
-        Column {
-          width: parent.width - saveButton.width - cancelButton.width - 2 * parent.spacing
-          anchors.verticalCenter: parent.verticalCenter
-          Text {
-            width: parent.width
-            text: "Wheel editor"
-            color: editor.foreground
-            font.family: Style.font.menuFamily
-            font.pixelSize: Style.font.heading
-            font.weight: Font.DemiBold
-            elide: Text.ElideRight
-          }
-          Text {
-            width: parent.width
-            text: editor.levelPath()
-            color: editor.dimmed
-            font.family: Style.font.menuFamily
-            font.pixelSize: Style.font.caption
-            elide: Text.ElideMiddle
-          }
-        }
-        Button {
-          id: cancelButton
-          text: "Cancel"
-          onClicked: editor.editorCanceled()
-        }
-        Button {
-          id: saveButton
-          text: "Save & close"
-          active: true
-          onClicked: editor.saveAll()
-        }
-      }
-
-      Text {
-        id: saveErrorText
-        width: parent.width
-        visible: editor.saveError !== ""
-        text: editor.saveError
-        color: Color.urgent
-        font.family: Style.font.menuFamily
-        font.pixelSize: Style.font.caption
-        wrapMode: Text.WordWrap
-      }
-
-      Dropdown {
-        id: selectionDropdown
-        width: parent.width
-        label: "Selection"
-        value: editor.selectionMode
-        options: [{ value: "click", label: "Click" }, { value: "stroke", label: "Stroke (gesture)" }]
-        onChanged: function(v) { editor.selectionMode = v }
-      }
-
-      Row {
-        id: levelRow
-        width: parent.width
-        spacing: Style.spacing.sm
-
-        Button {
-          id: levelUpButton
-          text: editor.levelStack.length > 0 ? "‹ " + (editor.levelStack.length > 1 ? editor.levelStack[editor.levelStack.length - 2].name : "root") : "root"
-          visible: editor.levelStack.length > 0
-          onClicked: editor.goLevelUp()
-        }
-        Text {
-          anchors.verticalCenter: parent.verticalCenter
-          width: parent.width - parent.spacing - (levelUpButton.visible ? levelUpButton.width : 0)
-          text: editor.currentItems.length + (editor.currentItems.length === 1 ? " item" : " items")
-          color: editor.dimmed
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
-          horizontalAlignment: Text.AlignRight
-          elide: Text.ElideLeft
-        }
-      }
-
-      ListView {
-        id: listView
-        width: parent.width
-        height: parent.height - browseHeader.height - selectionDropdown.height
-          - levelRow.height - addButton.height
-          - (saveErrorText.visible ? saveErrorText.height + parent.spacing : 0)
-          - 4 * parent.spacing
-        clip: true
-        spacing: Style.spacing.xs
-        boundsBehavior: Flickable.StopAtBounds
-
-        delegate: Rectangle {
-          id: browseRow
-          width: listView.width
-          height: Style.space(46)
-          radius: Style.cornerRadius
-          color: rowMouse.containsMouse ? Style.hoverFill : "transparent"
-
-          required property int index
-          required property var modelData
-          readonly property var item: browseRow.modelData
-          readonly property bool wheel: editor.isWheel(browseRow.modelData)
-
-          MouseArea {
-            id: rowMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            onClicked: editor.openForm(browseRow.index, false)
-          }
+        Row {
+          id: browseHeader
+          width: parent.width
+          spacing: Style.spacing.sm
 
           Text {
-            visible: browseRow.item.icon.charAt(0) !== "/"
-            anchors.left: parent.left
-            anchors.leftMargin: Style.spacing.md
             anchors.verticalCenter: parent.verticalCenter
-            text: browseRow.item.icon
-            font.pixelSize: Style.font.title
-          }
-
-          Image {
-            visible: browseRow.item.icon.charAt(0) === "/"
-            anchors.left: parent.left
-            anchors.leftMargin: Style.spacing.md
-            anchors.verticalCenter: parent.verticalCenter
-            width: Style.font.iconLarge
-            height: width
-            fillMode: Image.PreserveAspectFit
-            sourceSize.width: width * Screen.devicePixelRatio
-            sourceSize.height: height * Screen.devicePixelRatio
-            source: browseRow.item.icon.charAt(0) === "/" ? browseRow.item.icon : ""
-            asynchronous: true
+            text: ""
+            color: editor.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.space(26)
           }
 
           Column {
-            anchors.left: parent.left
-            anchors.leftMargin: Style.space(48)
-            anchors.right: actionsRow.left
-            anchors.rightMargin: Style.spacing.sm
+            width: parent.width - editorActions.implicitWidth - Style.space(26) - 2 * parent.spacing
             anchors.verticalCenter: parent.verticalCenter
+            spacing: 1
 
             Text {
               width: parent.width
-              text: browseRow.item.name
+              text: "Wheel editor"
               color: editor.foreground
-              font.family: Style.font.menuFamily
-              font.pixelSize: Style.font.body
-              font.weight: Font.Medium
+              font.family: Style.font.family
+              font.pixelSize: Style.font.title
+              font.weight: Font.DemiBold
               elide: Text.ElideRight
             }
             Text {
               width: parent.width
-              text: browseRow.wheel ? (browseRow.item.children.length + (browseRow.item.children.length === 1 ? " item" : " items"))
-                : ("→ " + browseRow.item.command)
+              text: editor.levelPath()
               color: editor.dimmed
-              font.family: Style.font.menuFamily
+              font.family: Style.font.family
               font.pixelSize: Style.font.caption
               elide: Text.ElideMiddle
             }
           }
 
           Row {
-            id: actionsRow
-            anchors.right: parent.right
-            anchors.rightMargin: Style.spacing.sm
+            id: editorActions
             anchors.verticalCenter: parent.verticalCenter
-            spacing: Style.spacing.xxs
+            spacing: Style.spacing.xs
 
             Button {
-              iconText: "›"
-              visible: browseRow.wheel
-              onClicked: editor.drillInto(browseRow.index)
+              text: "Cancel"
+              tooltipText: "Back to the wheel"
+              height: Style.spacing.controlHeight
+              bordered: true
+              focusable: true
+              foreground: editor.foreground
+              accent: editor.accent
+              onClicked: editor.editorCanceled()
             }
             Button {
-              iconText: "✎"
-              onClicked: editor.openForm(browseRow.index, false)
-            }
-            Button {
-              iconText: "✕"
-              onClicked: editor.requestDelete(browseRow.index)
+              text: "Save & close"
+              tooltipText: "Write the wheel to omas.jsonc"
+              height: Style.spacing.controlHeight
+              active: true
+              bordered: true
+              focusable: true
+              foreground: editor.foreground
+              accent: editor.accent
+              onClicked: editor.saveAll()
             }
           }
         }
 
         Text {
+          id: saveErrorText
+          width: parent.width
+          visible: editor.saveError !== ""
+          text: editor.saveError
+          color: Color.urgent
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
+        }
+
+        PanelSeparator { width: parent.width; foreground: editor.foreground }
+
+        PanelSectionHeader {
+          width: parent.width
+          text: "SELECTION"
+          foreground: editor.foreground
+        }
+        Text {
+          width: parent.width
+          text: "How an item is chosen in the wheel"
+          color: editor.dimmed
+          font.family: Style.font.family
+          font.pixelSize: Style.font.caption
+        }
+
+        Row {
+          id: selectionRow
+          width: parent.width
+          spacing: Style.space(6)
+
+          Button {
+            width: (selectionRow.width - selectionRow.spacing) / 2
+            height: Style.spacing.controlHeight
+            text: "Click"
+            tooltipText: "Point and click an item"
+            selected: editor.selectionMode === "click"
+            bordered: true
+            focusable: true
+            foreground: editor.foreground
+            accent: editor.accent
+            onClicked: editor.selectionMode = "click"
+          }
+          Button {
+            width: (selectionRow.width - selectionRow.spacing) / 2
+            height: Style.spacing.controlHeight
+            text: "Stroke"
+            tooltipText: "Draw a stroke through items"
+            selected: editor.selectionMode === "stroke"
+            bordered: true
+            focusable: true
+            foreground: editor.foreground
+            accent: editor.accent
+            onClicked: editor.selectionMode = "stroke"
+          }
+        }
+
+        PanelSeparator { width: parent.width; foreground: editor.foreground }
+
+        Item {
+          id: levelRow
+          width: parent.width
+          height: Math.max(levelUpButton.visible ? levelUpButton.height : 0,
+            levelCount.implicitHeight)
+
+          Button {
+            id: levelUpButton
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            iconText: "‹"
+            text: editor.levelStack.length > 0
+              ? (editor.levelStack.length > 1
+                ? editor.levelStack[editor.levelStack.length - 2].name : "root")
+              : ""
+            tooltipText: "Back one level"
+            visible: editor.levelStack.length > 0
+            height: Style.spacing.controlHeight
+            bordered: true
+            focusable: true
+            foreground: editor.foreground
+            accent: editor.accent
+            onClicked: editor.goLevelUp()
+          }
+          Text {
+            id: levelCount
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: editor.currentItems.length + (editor.currentItems.length === 1 ? " item" : " items")
+            color: editor.dimmed
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideLeft
+          }
+        }
+      }
+
+      ListView {
+        id: listView
+        anchors.top: browseTop.bottom
+        anchors.topMargin: Style.space(8)
+        anchors.bottom: addButton.top
+        anchors.bottomMargin: Style.space(8)
+        anchors.left: parent.left
+        anchors.right: parent.right
+        clip: true
+        spacing: Style.space(4)
+        boundsBehavior: Flickable.StopAtBounds
+        QQC.ScrollBar.vertical: QQC.ScrollBar { policy: QQC.ScrollBar.AsNeeded }
+
+        delegate: ItemRow {
+            required property int index
+            required property var modelData
+
+            list: listView
+            rowIndex: index
+            item: modelData
+            wheel: editor.isWheel(modelData)
+            allowDrill: true
+            onActivated: function(i) { editor.openForm(i, false) }
+            onDrilled: function(i) { editor.drillInto(i) }
+            onEdited: function(i) { editor.openForm(i, false) }
+            onRemoved: function(i) { editor.requestDelete(i) }
+        }
+
+        Text {
           anchors.centerIn: parent
           visible: listView.count === 0
-          text: "Empty — add an item below"
+          text: "No items yet — add one below"
           color: editor.dimmed
-          font.family: Style.font.menuFamily
+          font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
       }
 
       Button {
         id: addButton
-        width: parent.width
-        text: "+  Add item"
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: Style.spacing.controlHeight
+        iconText: "+"
+        text: "Add item"
+        tooltipText: "Add an item to this wheel"
+        bordered: true
+        focusable: true
+        foreground: editor.foreground
+        accent: editor.accent
         onClicked: editor.openForm(currentItems.length, true)
       }
     }
@@ -482,36 +661,58 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        spacing: Style.spacing.sm
+        spacing: Style.space(8)
 
-        Text {
-          text: editor.formCtx && editor.formCtx.isNew ? "Add item" : "Edit item"
-          color: editor.foreground
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.heading
-          font.weight: Font.DemiBold
-        }
-        Text {
-          visible: editor.formStack.length >= 2
-          text: editor.formStack.length >= 2
-            ? "inside “" + (editor.formStack[editor.formStack.length - 2].item.name || "wheel") + "”"
-            : ""
-          color: editor.dimmed
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
+        Row {
+          width: parent.width
+          spacing: Style.spacing.sm
+
+          Text {
+            anchors.verticalCenter: parent.verticalCenter
+            text: editor.formCtx && editor.formCtx.isNew ? "\uF067" : "\uF044"
+            color: editor.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.space(22)
+          }
+
+          Column {
+            width: parent.width - Style.space(22) - parent.spacing
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 1
+
+            Text {
+              width: parent.width
+              text: editor.formCtx && editor.formCtx.isNew ? "Add item" : "Edit item"
+              color: editor.foreground
+              font.family: Style.font.family
+              font.pixelSize: Style.font.title
+              font.weight: Font.DemiBold
+              elide: Text.ElideRight
+            }
+            Text {
+              width: parent.width
+              visible: editor.formStack.length >= 2
+              text: editor.formStack.length >= 2
+                ? "inside “" + (editor.formStack[editor.formStack.length - 2].item.name || "wheel") + "”"
+                : ""
+              color: editor.dimmed
+              font.family: Style.font.family
+              font.pixelSize: Style.font.caption
+              elide: Text.ElideMiddle
+            }
+          }
         }
 
-        Text {
+        FieldLabel {
           width: parent.width
           text: "Name"
-          color: editor.dimmed
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
         }
         TextField {
           id: nameField
           width: parent.width
           placeholderText: "Name shown under the icon"
+          foreground: editor.foreground
+          accent: editor.accent
           // The kit's TextField has no maxLength; enforce the budget by
           // truncating here (the write-back fires again with bounded text).
           onTextChanged: {
@@ -524,51 +725,30 @@ Item {
           }
         }
 
-        Text {
+        FieldLabel {
           width: parent.width
-          text: "Icon — emoji, glyph, or /path/to/image"
-          color: editor.dimmed
-          font.family: Style.font.menuFamily
-          font.pixelSize: Style.font.caption
+          text: "Icon"
         }
         Row {
           id: iconRow
           width: parent.width
           spacing: Style.spacing.sm
 
-          Rectangle {
+          IconChip {
             width: Style.space(44)
             height: width
-            radius: width / 2
             anchors.verticalCenter: parent.verticalCenter
-            color: Style.hoverFill
-            border.color: Color.menu.border
-            border.width: 1
-
-            Text {
-              visible: editor.formItem && editor.formItem.icon.charAt(0) !== "/"
-              anchors.centerIn: parent
-              text: editor.formItem ? editor.formItem.icon : ""
-              font.pixelSize: Style.font.title
-            }
-            Image {
-              visible: editor.formItem && editor.formItem.icon.charAt(0) === "/"
-              anchors.centerIn: parent
-              width: Style.font.iconLarge
-              height: width
-              fillMode: Image.PreserveAspectFit
-              sourceSize.width: width * Screen.devicePixelRatio
-              sourceSize.height: height * Screen.devicePixelRatio
-              source: editor.formItem && editor.formItem.icon.charAt(0) === "/" ? editor.formItem.icon : ""
-              asynchronous: true
-            }
+            icon: editor.formItem ? editor.formItem.icon : ""
+            chipSize: Style.space(44)
           }
 
           TextField {
             id: iconField
             width: parent.width - parent.spacing - Style.space(44)
             anchors.verticalCenter: parent.verticalCenter
-            placeholderText: "🌐"
+            placeholderText: "Emoji, glyph, or /path/to/image"
+            foreground: editor.foreground
+            accent: editor.accent
             onTextChanged: {
               if (editor.fieldsSilent) return
               if (text.length > PieModel.MAX_ICON_CHARS) {
@@ -587,8 +767,12 @@ Item {
             ? "Opens a nested wheel — manage its items below"
             : "Runs a command when selected"
           checked: editor.formKind === "wheel"
+          foreground: editor.foreground
+          accent: editor.accent
           onClicked: editor.formKind = editor.formKind === "wheel" ? "command" : "wheel"
         }
+
+        PanelSeparator { width: parent.width; foreground: editor.foreground }
 
         Column {
           id: commandSection
@@ -596,17 +780,16 @@ Item {
           spacing: Style.spacing.sm
           visible: editor.formKind === "command"
 
-          Text {
+          FieldLabel {
             width: parent.width
             text: "Command"
-            color: editor.dimmed
-            font.family: Style.font.menuFamily
-            font.pixelSize: Style.font.caption
           }
           TextField {
             id: commandField
             width: parent.width
             placeholderText: "e.g. firefox --private-window"
+            foreground: editor.foreground
+            accent: editor.accent
             onTextChanged: {
               if (editor.fieldsSilent) return
               if (text.length > PieModel.MAX_COMMAND_CHARS) {
@@ -623,16 +806,26 @@ Item {
         id: formButtons
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        spacing: Style.spacing.sm
+        spacing: Style.space(4)
         layoutDirection: Qt.RightToLeft
 
         Button {
           text: "Save"
+          height: Style.spacing.controlHeight
           active: true
+          bordered: true
+          focusable: true
+          foreground: editor.foreground
+          accent: editor.accent
           onClicked: editor.saveForm()
         }
         Button {
           text: "Cancel"
+          height: Style.spacing.controlHeight
+          bordered: true
+          focusable: true
+          foreground: editor.foreground
+          accent: editor.accent
           onClicked: editor.cancelForm()
         }
       }
@@ -643,127 +836,61 @@ Item {
       Column {
         id: childSection
         anchors.top: formTop.bottom
-        anchors.topMargin: Style.spacing.md
+        anchors.topMargin: Style.space(8)
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: formButtons.top
-        anchors.bottomMargin: Style.spacing.md
+        anchors.bottomMargin: Style.space(8)
         visible: editor.formKind === "wheel"
-        spacing: Style.spacing.sm
+        spacing: Style.space(8)
+
+        PanelSectionHeader {
+          width: parent.width
+          text: "ITEMS INSIDE"
+          foreground: editor.foreground
+        }
 
         Text {
           id: childHeader
           width: parent.width
           text: editor.formItem && editor.formItem.children
-            ? editor.formItem.children.length + (editor.formItem.children.length === 1 ? " item" : " items") + " inside"
+            ? editor.formItem.children.length + (editor.formItem.children.length === 1 ? " item" : " items") + " in this wheel"
             : ""
           color: editor.dimmed
-          font.family: Style.font.menuFamily
+          font.family: Style.font.family
           font.pixelSize: Style.font.caption
         }
 
         ListView {
           id: childList
           width: parent.width
-          height: parent.height - childHeader.height - childAddButton.height - 2 * parent.spacing
+          height: parent.height - childHeader.height - childAddButton.height - 3 * parent.spacing
           clip: true
-          spacing: Style.spacing.xs
+          spacing: Style.space(4)
           boundsBehavior: Flickable.StopAtBounds
           model: editor.formItem && Array.isArray(editor.formItem.children) ? editor.formItem.children : []
+          QQC.ScrollBar.vertical: QQC.ScrollBar { policy: QQC.ScrollBar.AsNeeded }
 
-          delegate: Rectangle {
-            id: childRow
-            width: childList.width
-            height: Style.space(46)
-            radius: Style.cornerRadius
-            color: childRowMouse.containsMouse ? Style.hoverFill : "transparent"
+          delegate: ItemRow {
+              required property int index
+              required property var modelData
 
-            required property int index
-            required property var modelData
-            readonly property var item: childRow.modelData
-            readonly property bool wheel: editor.isWheel(childRow.modelData)
-
-            MouseArea {
-              id: childRowMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              onClicked: editor.openChildForm(childRow.index, false)
-            }
-
-            Text {
-              visible: childRow.item.icon.charAt(0) !== "/"
-              anchors.left: parent.left
-              anchors.leftMargin: Style.spacing.md
-              anchors.verticalCenter: parent.verticalCenter
-              text: childRow.item.icon
-              font.pixelSize: Style.font.title
-            }
-
-            Image {
-              visible: childRow.item.icon.charAt(0) === "/"
-              anchors.left: parent.left
-              anchors.leftMargin: Style.spacing.md
-              anchors.verticalCenter: parent.verticalCenter
-              width: Style.font.iconLarge
-              height: width
-              fillMode: Image.PreserveAspectFit
-              sourceSize.width: width * Screen.devicePixelRatio
-              sourceSize.height: height * Screen.devicePixelRatio
-              source: childRow.item.icon.charAt(0) === "/" ? childRow.item.icon : ""
-              asynchronous: true
-            }
-
-            Column {
-              anchors.left: parent.left
-              anchors.leftMargin: Style.space(48)
-              anchors.right: childActionsRow.left
-              anchors.rightMargin: Style.spacing.sm
-              anchors.verticalCenter: parent.verticalCenter
-
-              Text {
-                width: parent.width
-                text: childRow.item.name
-                color: editor.foreground
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.body
-                font.weight: Font.Medium
-                elide: Text.ElideRight
-              }
-              Text {
-                width: parent.width
-                text: childRow.wheel ? (childRow.item.children.length + (childRow.item.children.length === 1 ? " item" : " items"))
-                  : ("→ " + childRow.item.command)
-                color: editor.dimmed
-                font.family: Style.font.menuFamily
-                font.pixelSize: Style.font.caption
-                elide: Text.ElideMiddle
-              }
-            }
-
-            Row {
-              id: childActionsRow
-              anchors.right: parent.right
-              anchors.rightMargin: Style.spacing.sm
-              anchors.verticalCenter: parent.verticalCenter
-              spacing: Style.spacing.xxs
-
-              Button {
-                iconText: "✎"
-                onClicked: editor.openChildForm(childRow.index, false)
-              }
-              Button {
-                iconText: "✕"
-                onClicked: editor.requestChildDelete(childRow.index)
-              }
-            }
+              list: childList
+              rowIndex: index
+              item: modelData
+              wheel: editor.isWheel(modelData)
+              allowDrill: false
+              onActivated: function(i) { editor.openChildForm(i, false) }
+              onEdited: function(i) { editor.openChildForm(i, false) }
+              onRemoved: function(i) { editor.requestChildDelete(i) }
           }
 
           Text {
             anchors.centerIn: parent
             visible: childList.count === 0
-            text: "Empty — add an item below"
+            text: "No items yet — add one below"
             color: editor.dimmed
-            font.family: Style.font.menuFamily
+            font.family: Style.font.family
             font.pixelSize: Style.font.caption
           }
         }
@@ -771,7 +898,14 @@ Item {
         Button {
           id: childAddButton
           width: parent.width
-          text: "+  Add item"
+          height: Style.spacing.controlHeight
+          iconText: "+"
+          text: "Add item"
+          tooltipText: "Add an item to this wheel"
+          bordered: true
+          focusable: true
+          foreground: editor.foreground
+          accent: editor.accent
           onClicked: editor.openChildForm(editor.formItem && editor.formItem.children ? editor.formItem.children.length : 0, true)
         }
       }
@@ -798,7 +932,7 @@ Item {
     scrim: Util.alpha(Color.menu.background, 0.6)
     selectedBackground: Style.selectedAccentFill
     selectedText: editor.accent
-    fontFamily: Style.font.menuFamily
+    fontFamily: Style.font.family
     cornerRadius: Style.cornerRadius
     onCanceled: {
       editor.deleteIndex = -1
