@@ -92,7 +92,7 @@ omarchy-shell shell hide palccod.omas                 # dismiss
 4. At the root wheel, the center circle says **settings**: click it to
    open the wheel editor.
 
-In **stroke mode** (set it in the editor's *Selection* dropdown, or summon
+In **stroke mode** (set it in the editor's *Selection* section, or summon
 with `{"mode":"stroke"}`): press anywhere and drag through the items —
 stop (dwell) or make a sharp turn to select, keep the button held to
 chain through sub-wheels, drag into the center to go back. Release over
