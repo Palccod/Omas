@@ -148,14 +148,15 @@ function demoWheel() {
       {
         name: "Web", icon: "🌐",
         children: [
-          { name: "Firefox", icon: "🦊", command: "firefox", children: [] },
-          { name: "Private window", icon: "🕵️", command: "firefox --private-window", children: [] }
+          { name: "Firefox", icon: "🌐", command: "chromium", children: [] },
+          { name: "Private window", icon: "🕵️", command: "chromium --incognito", children: [] }
         ]
       },
       {
         name: "System", icon: "⚙️",
         children: [
           { name: "Lock", icon: "🔒", command: "omarchy system lock", children: [] },
+          { name: "Sleep", icon: "🌙", command: "systemctl sleep", children: [] },
           {
             name: "Power", icon: "⏻",
             children: [
@@ -165,9 +166,10 @@ function demoWheel() {
           }
         ]
       },
-      { name: "Terminal", icon: "💻", command: "alacritty", children: [] },
+      { name: "Terminal", icon: "💻", command: "foot", children: [] },
       { name: "Screenshot", icon: "📸", command: "omarchy capture screenshot", children: [] },
-      { name: "Files", icon: "📁", command: "xdg-open ~", children: [] }
+      { name: "Files", icon: "📁", command: "xdg-open ~", children: [] },
+      { name: "Editor", icon: "📝", command: "foot nvim", children: [] }
     ]
   }
 }

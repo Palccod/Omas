@@ -114,11 +114,11 @@ this file too.
       "name": "Web",
       "icon": "🌐",                   // emoji, glyph, or "/path/to/image.png"
       "children": [
-        { "name": "Firefox", "icon": "🦊", "command": "firefox" },
-        { "name": "Private window", "icon": "🕵️", "command": "firefox --private-window" }
+        { "name": "Chromium", "icon": "🌐", "command": "chromium" },
+        { "name": "Private window", "icon": "🕵️", "command": "chromium --incognito" }
       ]
     },
-    { "name": "Terminal", "icon": "💻", "command": "alacritty" }
+    { "name": "Terminal", "icon": "💻", "command": "foot" }
   ]
 }
 ```

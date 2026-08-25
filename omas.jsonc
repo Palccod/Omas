@@ -39,6 +39,6 @@
     { "name": "Terminal", "icon": "💻", "command": "foot" },
     { "name": "Screenshot", "icon": "📸", "command": "omarchy capture screenshot" },
     { "name": "Files", "icon": "📁", "command": "xdg-open ~" },
-    { "name": "Editor", "icon": "📝", "command": "nvim" }
+    { "name": "Editor", "icon": "📝", "command": "foot nvim" }
   ]
 }
