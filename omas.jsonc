@@ -16,8 +16,8 @@
       "name": "Web",
       "icon": "🌐",
       "children": [
-        { "name": "Firefox", "icon": "🦊", "command": "firefox" },
-        { "name": "Private window", "icon": "🕵️", "command": "firefox --private-window" }
+        { "name": "Chromium", "icon": "🌐", "command": "chromium" },
+        { "name": "Private window", "icon": "🕵️", "command": "chromium --incognito" }
       ]
     },
     {
@@ -25,6 +25,7 @@
       "icon": "⚙️",
       "children": [
         { "name": "Lock", "icon": "🔒", "command": "omarchy system lock" },
+        { "name": "Sleep", "icon": "🌙", "command": "systemctl sleep" },
         {
           "name": "Power",
           "icon": "⏻",
@@ -35,9 +36,9 @@
         }
       ]
     },
-    { "name": "Terminal", "icon": "💻", "command": "alacritty" },
+    { "name": "Terminal", "icon": "💻", "command": "foot" },
     { "name": "Screenshot", "icon": "📸", "command": "omarchy capture screenshot" },
     { "name": "Files", "icon": "📁", "command": "xdg-open ~" },
-    { "name": "VS-Code", "icon": "🫥", "command": "code" }
+    { "name": "VS-Code", "icon": "Editor", "command": "nvim" }
   ]
 }
