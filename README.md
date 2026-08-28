@@ -15,6 +15,9 @@ at an item and click — that's all there is to it.
 - **Custom command wheels** — categories, sub-wheels, commands; as many
   items and levels as you like (defined in one JSONC file, hot-reloaded on
   save)
+- **Opens under your cursor** — the wheel is summoned right where the
+  mouse is (sliding in from the edge when there's no room; falls back to
+  the screen center if the cursor position can't be read)
 - **Custom icons** — emoji, text glyphs, or image files (a starter icon
   pack ships with the plugin)
 - **Built-in editor** — open it right from the wheel's center; add, edit,
@@ -79,7 +82,7 @@ omarchy-shell shell hide palccod.omas                 # dismiss
 
 ## Usage — the user flow
 
-1. Press **SUPER + Z** — the wheel opens in the middle of the screen.
+1. Press **SUPER + Z** — the wheel opens right under your cursor.
 2. Point at a category (Web, System, …) and click — its sub-wheel opens.
    The center circle always takes you **back** one level.
 3. Point at a command and click — it runs and the wheel closes.
@@ -184,7 +187,8 @@ the keybind you added in `bindings.lua`.
 - `omarchy-shell shell call palccod.omas ping x` returns a JSON state
   dump — handy for checking which code the shell is actually running
 - Roadmap ideas: item reordering/duplicate in the editor, per-item
-  themes (sizes, wedge colors), opening at the cursor position
+  themes (sizes, wedge colors), hold-to-open / release-to-launch through
+  a second keybind
 
 ## Credits
 

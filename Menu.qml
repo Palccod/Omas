@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+import Quickshell.Hyprland
 import qs.Commons
 import qs.Ui
 import "PieModel.js" as PieModel
@@ -13,7 +14,8 @@ import "PieModel.js" as PieModel
 // ~/.config/omarchy/extensions/omas.jsonc defines). Leaf nodes run their
 // command detached. Selection is by pointing and clicking inside wedge
 // sectors; the hub goes back one level and, on the root wheel, opens
-// the built-in editor.
+// the built-in editor. The wheel is summoned under the cursor (falling
+// back to the panel center when the position can't be read).
 
 Item {
   id: root
@@ -36,6 +38,23 @@ Item {
   // pie. The editor edits a working copy and writes omas.jsonc on save.
   property bool editorOpen: false
 
+  // Cursor point in panel coordinates (unclamped); x < 0 means no usable
+  // cursor position was found at summon time.
+  property point cursorAt: Qt.point(-1, -1)
+
+  // Wheel center: the cursor point clamped so the whole wheel stays on
+  // screen, or the sentinel for "panel center". A binding on purpose —
+  // the summon resolves the cursor before the panel has mapped, so the
+  // clamp must follow the panel's real size once the window realizes it.
+  readonly property point openAt: {
+    if (cursorAt.x < 0) return Qt.point(-1, -1)
+    var pad = wedgeOuter * pieScale + Style.gapsOut
+    return Qt.point(
+      Math.max(pad, Math.min(panel.width - pad, cursorAt.x)),
+      Math.max(pad, Math.min(panel.height - pad, cursorAt.y)))
+  }
+  property bool openPending: false
+
   readonly property var items: wheel ? wheel.items : []
   readonly property int itemCount: items.length
   readonly property bool canGoBack: navStack.length > 0
@@ -45,6 +64,8 @@ Item {
       editorOpen: editorOpen,
       formDepth: editor.formStack.length,
       opened: opened,
+      openAt: openAt.x + "," + openAt.y,
+      openPending: openPending,
       items: itemCount,
       title: wheel ? wheel.title : ""
     })
@@ -63,16 +84,45 @@ Item {
 
   function open(payloadJson) {
     if (!configReady) loadConfig()
+    if (openPending) return
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
-    opened = true
+    cursorAt = Qt.point(-1, -1)
     if (payload.edit === true) {
+      opened = true
       enterEditor()
       return
     }
+    // The wheel is placed under the cursor, so wait for the compositor to
+    // report the pointer position (or a timeout, whichever comes first)
+    // before showing anything — the panel must not flash up centered first.
+    openPending = true
+    cursorFallback.restart()
+    cursorProc.running = true
+  }
+
+  // Second half of open(), called by the cursor read or its fallback timer.
+  function finishOpen() {
+    if (!openPending) return
+    openPending = false
+    cursorFallback.stop()
+    opened = true
     bumpWheel()
+  }
+
+  // Global (layout-space) cursor position → unclamped point in panel
+  // coordinates, or null when it can't be resolved. The panel is a layer
+  // surface without an explicit screen, so it maps to the compositor's
+  // focused output — the same monitor the coordinates are converted
+  // against. Null (cursor on another monitor, no IPC) opens centered.
+  function localCursorCenter(gx, gy) {
+    var mon = Hyprland.focusedMonitor
+    if (!mon) return null
+    if (gx < mon.x || gx >= mon.x + mon.width || gy < mon.y || gy >= mon.y + mon.height)
+      return null
+    return Qt.point(gx - mon.x, gy - mon.y)
   }
 
   // The editor can be entered two ways: the summon payload ({"edit":true})
@@ -84,11 +134,14 @@ Item {
   }
 
   function close() {
+    openPending = false
+    cursorFallback.stop()
     opened = false
     editorOpen = false
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     hoveredIndex = -1
+    cursorAt = Qt.point(-1, -1)
   }
 
   // The editor's Save: write the config file through FileView (bounded,
@@ -269,6 +322,41 @@ Item {
     onFileChanged: root.loadConfig()
   }
 
+  // Cursor read for cursor-relative summoning: hyprctl reports the global
+  // layout position in "X, Y" form. Any failure (missing hyprctl, empty or
+  // malformed output) falls back to the panel center via finishOpen().
+  Process {
+    id: cursorProc
+    command: ["hyprctl", "cursorpos"]
+
+    stdout: StdioCollector {
+      onStreamFinished: {
+        try {
+          var t = text.trim()
+          var comma = t.indexOf(",")
+          if (comma > 0) {
+            var gx = parseFloat(t.substring(0, comma))
+            var gy = parseFloat(t.substring(comma + 1))
+            if (isFinite(gx) && isFinite(gy)) {
+              var p = root.localCursorCenter(gx, gy)
+              if (p) root.cursorAt = p
+            }
+          }
+        } catch (e) {
+          console.warn("Omas: cursor read failed:", e)
+        }
+        root.finishOpen()
+      }
+    }
+  }
+
+  // Never let a wedged cursor read block the summon for long.
+  Timer {
+    id: cursorFallback
+    interval: 250
+    onTriggered: root.finishOpen()
+  }
+
   Component.onCompleted: loadConfig()
 
   PanelWindow {
@@ -320,7 +408,11 @@ Item {
     Item {
       id: pieHost
       visible: !root.editorOpen
-      anchors.centerIn: parent
+      // Centered on the summon point (or the panel center). scale is
+      // applied around Item.Center, so the visual wheel stays centered on
+      // (x + width/2, y + height/2) as it shrinks near screen edges.
+      x: root.openAt.x >= 0 ? root.openAt.x - width / 2 : (parent.width - width) / 2
+      y: root.openAt.y >= 0 ? root.openAt.y - height / 2 : (parent.height - height) / 2
       width: root.wedgeOuter * 2
       height: width
       scale: root.pieScale
