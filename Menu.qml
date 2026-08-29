@@ -131,22 +131,30 @@ Item {
   // cursor read (not the hover state — hover can lag or be absent
   // entirely) is mapped through the same wedge math the mouse uses; the
   // hub, the scrim, or a read failure all count as "dismiss".
+  property real lastPickMs: 0
+
   function pick() {
+    // Debounce: a chattering button or racing release events must not
+    // resolve two picks from one gesture.
+    var now = Date.now()
+    if (now - lastPickMs < 150) return
+    lastPickMs = now
     if (!opened || editorOpen || openPending) return
     pickProc.running = true
   }
 
   // Second half of pick(): map the global pointer position into wheel
   // coordinates (undoing the pie scale around its center) and select.
-  // A release without movement since the gesture started keeps the wheel
-  // open — the user didn't flick at anything, so nothing should launch
-  // and the wheel shouldn't vanish under their hand. Releasing on the
-  // hub mirrors click mode: back one level, or the editor at the root;
-  // off the wheel dismisses.
+  // Classic radial-menu resolution: any flicked release picks the item
+  // in that direction — a short flick that never leaves the hub ring
+  // still resolves by angle, so the first release after summoning always
+  // lands on something. A release without movement counts as a center
+  // release (back one level, editor at the root); off the wheel
+  // dismisses.
   function finishPick(raw) {
     var index = -1
     var moved = false
-    var hub = false
+    var center = false
     var onWheel = false
     try {
       var t = String(raw || "").trim()
@@ -164,23 +172,31 @@ Item {
             var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
             var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
             index = wedgeIndexAt(lx, ly)
-            if (index < 0) {
+            if (index < 0 && itemCount > 0) {
               var dx = lx - wheelHolder.width / 2
               var dy = ly - wheelHolder.height / 2
-              hub = Math.sqrt(dx * dx + dy * dy) < hubRadius
-              onWheel = Math.abs(dx) < wheelHolder.width / 2 && Math.abs(dy) < wheelHolder.height / 2
+              if (Math.sqrt(dx * dx + dy * dy) < wedgeInner) {
+                // Flick too short to reach the ring: pick by direction.
+                var deg = Math.atan2(dy, dx) * 180 / Math.PI
+                if (deg < 0) deg += 360
+                index = Math.round((deg + 90) / (360 / itemCount)) % itemCount
+              } else {
+                onWheel = Math.abs(dx) < wheelHolder.width / 2
+                  && Math.abs(dy) < wheelHolder.height / 2
+              }
             }
+          } else {
+            center = true
           }
         }
       }
     } catch (e) {
       console.warn("Omas: pick failed:", e)
     }
-    if (!moved) return
     if (index >= 0) openItem(index)
-    else if (hub) { if (canGoBack) goBack(); else enterEditor() }
+    else if (center) { if (canGoBack) goBack(); else enterEditor() }
     else if (onWheel) return
-    else close()
+    else if (moved) close()
   }
 
   // Second half of open(), called by the cursor read or its fallback timer.

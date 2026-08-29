@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "palccod.omas",
   "name": "Omas",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "author": "palccod",
   "license": "MIT",
   "description": "Radial menu for Omarchy: user-defined categories open nested wheels of custom commands with custom icons.",
