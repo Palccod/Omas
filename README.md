@@ -86,6 +86,26 @@ o.bind("SUPER + Z", "Omas wheel (release)", "omarchy-shell shell call palccod.om
 Clicking items still works in hold mode — the release gesture and clicks
 coexist, so nothing you know is lost.
 
+**Mouse side buttons** work as hold keys too, e.g. the forward button:
+
+```lua
+o.bind("SUPER + mouse:276", "Omas wheel", "omarchy-shell shell summon palccod.omas")
+o.bind("SUPER + mouse:276", "Omas wheel (release)", "omarchy-shell shell call palccod.omas pick x",
+       { release = true })
+```
+
+If the wheel stops responding *after* you add the release binding, your
+Omarchy/Hyprland build isn't keeping both binds on the same mouse button
+(release-flagged mouse binds were reworked in recent Hyprland releases).
+Check that **two** entries are registered — a `bind` and a `bindrd`:
+
+```bash
+hyprctl binds | grep -A4 "mouse:276"
+```
+
+One entry instead of two → update Omarchy/Hyprland. Releasing without
+flicking keeps the wheel open, so a stray press never launches anything.
+
 If your key of choice is already bound by Omarchy defaults, unbind it
 first, then bind it to Omas:
 

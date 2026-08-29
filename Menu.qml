@@ -47,6 +47,12 @@ Item {
   // cursor position was found at summon time.
   property point cursorAt: Qt.point(-1, -1)
 
+  // Pointer position at the last hold-gesture anchor (summon or previous
+  // pick). pick() only acts when the pointer has moved away from it, so a
+  // press-release without a flick leaves the wheel up instead of
+  // dismissing it on the spot.
+  property point pickOrigin: Qt.point(-1, -1)
+
   // Wheel center: the cursor point clamped so the whole wheel stays on
   // screen, or the sentinel for "panel center". A binding on purpose —
   // the summon resolves the cursor before the panel has mapped, so the
@@ -129,8 +135,12 @@ Item {
 
   // Second half of pick(): map the global pointer position into wheel
   // coordinates (undoing the pie scale around its center) and select.
+  // A release without movement since the gesture started keeps the wheel
+  // open — the user didn't flick at anything, so nothing should launch
+  // and the wheel shouldn't vanish under their hand.
   function finishPick(raw) {
     var index = -1
+    var moved = false
     try {
       var t = String(raw || "").trim()
       var comma = t.indexOf(",")
@@ -139,16 +149,21 @@ Item {
         var gy = parseFloat(t.substring(comma + 1))
         var p = localCursorCenter(gx, gy)
         if (p) {
-          var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
-          var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
-          index = wedgeIndexAt(
-            wheelHolder.width / 2 + (p.x - csx) / pieScale,
-            wheelHolder.height / 2 + (p.y - csy) / pieScale)
+          moved = Math.abs(p.x - pickOrigin.x) + Math.abs(p.y - pickOrigin.y) > Style.space(12)
+          pickOrigin = p
+          if (moved) {
+            var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
+            var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
+            index = wedgeIndexAt(
+              wheelHolder.width / 2 + (p.x - csx) / pieScale,
+              wheelHolder.height / 2 + (p.y - csy) / pieScale)
+          }
         }
       }
     } catch (e) {
       console.warn("Omas: pick failed:", e)
     }
+    if (!moved) return
     if (index >= 0) openItem(index)
     else close()
   }
@@ -159,6 +174,8 @@ Item {
     openPending = false
     cursorFallback.stop()
     opened = true
+    pickOrigin = cursorAt.x >= 0 ? Qt.point(cursorAt.x, cursorAt.y)
+                                 : Qt.point(panel.width / 2, panel.height / 2)
     bumpWheel()
   }
 
