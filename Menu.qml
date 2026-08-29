@@ -140,10 +140,14 @@ Item {
   // coordinates (undoing the pie scale around its center) and select.
   // A release without movement since the gesture started keeps the wheel
   // open — the user didn't flick at anything, so nothing should launch
-  // and the wheel shouldn't vanish under their hand.
+  // and the wheel shouldn't vanish under their hand. Releasing on the
+  // hub mirrors click mode: back one level, or the editor at the root;
+  // off the wheel dismisses.
   function finishPick(raw) {
     var index = -1
     var moved = false
+    var hub = false
+    var onWheel = false
     try {
       var t = String(raw || "").trim()
       var comma = t.indexOf(",")
@@ -157,9 +161,15 @@ Item {
           if (moved) {
             var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
             var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
-            index = wedgeIndexAt(
-              wheelHolder.width / 2 + (p.x - csx) / pieScale,
-              wheelHolder.height / 2 + (p.y - csy) / pieScale)
+            var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
+            var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
+            index = wedgeIndexAt(lx, ly)
+            if (index < 0) {
+              var dx = lx - wheelHolder.width / 2
+              var dy = ly - wheelHolder.height / 2
+              hub = Math.sqrt(dx * dx + dy * dy) < hubRadius
+              onWheel = Math.abs(dx) < wheelHolder.width / 2 && Math.abs(dy) < wheelHolder.height / 2
+            }
           }
         }
       }
@@ -168,6 +178,8 @@ Item {
     }
     if (!moved) return
     if (index >= 0) openItem(index)
+    else if (hub) { if (canGoBack) goBack(); else enterEditor() }
+    else if (onWheel) return
     else close()
   }
 

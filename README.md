@@ -144,7 +144,9 @@ keybind):
    key is down.
 2. Flick toward an item and **release** — it runs. Releasing on a
    category opens its sub-wheel instead; hold and release again to pick
-   from it. Releasing on the hub or the edge dismisses the wheel.
+   from it. Releasing on the center goes **back** one level (at the root
+   wheel it opens the settings editor), and releasing off the wheel
+   dismisses it — the wheel never vanishes on a stray release.
 3. Clicks and Escape keep working exactly as in click mode.
 
 ### The editor
