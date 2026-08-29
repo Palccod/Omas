@@ -151,50 +151,55 @@ Item {
     pickProc.running = true
   }
 
-  // Second half of pick(): map the global pointer position into wheel
-  // coordinates (undoing the pie scale around its center) and select.
-  // Classic radial-menu resolution: any flicked release picks the item
-  // in that direction — a short flick that never leaves the hub ring
-  // still resolves by angle, so the first release after summoning always
-  // lands on something. A release without movement counts as a center
-  // release (back one level, editor at the root); off the wheel
-  // dismisses.
+  // Second half of pick(): resolve the release into a selection. The
+  // hover highlight is what the user aims at, so when the pointer is on
+  // a wedge it wins outright — a fresh cursor read lands ~15ms after the
+  // physical release, by which time a fast flick has drifted past the
+  // aimed wedge. The read is only the fallback for positions hover
+  // can't describe (hub, scrim): there, classic radial-menu rules apply
+  // — a flicked release resolves by direction even before the cursor
+  // leaves the hub ring, an in-place release is a center release (back
+  // one level, editor at the root), and off the wheel dismisses.
   function finishPick(raw) {
     var index = -1
     var moved = false
     var center = false
     var onWheel = false
     try {
-      var t = String(raw || "").trim()
-      var comma = t.indexOf(",")
-      if (comma > 0) {
-        var gx = parseFloat(t.substring(0, comma))
-        var gy = parseFloat(t.substring(comma + 1))
-        var p = localCursorCenter(gx, gy)
-        if (p) {
-          moved = Math.abs(p.x - pickOrigin.x) + Math.abs(p.y - pickOrigin.y) > Style.space(12)
-          pickOrigin = p
-          if (moved) {
-            var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
-            var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
-            var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
-            var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
-            index = wedgeIndexAt(lx, ly)
-            if (index < 0 && itemCount > 0) {
-              var dx = lx - wheelHolder.width / 2
-              var dy = ly - wheelHolder.height / 2
-              if (Math.sqrt(dx * dx + dy * dy) < wedgeInner) {
-                // Flick too short to reach the ring: pick by direction.
-                var deg = Math.atan2(dy, dx) * 180 / Math.PI
-                if (deg < 0) deg += 360
-                index = Math.round((deg + 90) / (360 / itemCount)) % itemCount
-              } else {
-                onWheel = Math.abs(dx) < wheelHolder.width / 2
-                  && Math.abs(dy) < wheelHolder.height / 2
+      if (hoveredIndex >= 0) {
+        index = hoveredIndex
+      } else {
+        var t = String(raw || "").trim()
+        var comma = t.indexOf(",")
+        if (comma > 0) {
+          var gx = parseFloat(t.substring(0, comma))
+          var gy = parseFloat(t.substring(comma + 1))
+          var p = localCursorCenter(gx, gy)
+          if (p) {
+            moved = Math.abs(p.x - pickOrigin.x) + Math.abs(p.y - pickOrigin.y) > Style.space(12)
+            pickOrigin = p
+            if (moved) {
+              var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
+              var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
+              var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
+              var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
+              index = wedgeIndexAt(lx, ly)
+              if (index < 0 && itemCount > 0) {
+                var dx = lx - wheelHolder.width / 2
+                var dy = ly - wheelHolder.height / 2
+                if (Math.sqrt(dx * dx + dy * dy) < wedgeInner) {
+                  // Flick too short to reach the ring: pick by direction.
+                  var deg = Math.atan2(dy, dx) * 180 / Math.PI
+                  if (deg < 0) deg += 360
+                  index = Math.round((deg + 90) / (360 / itemCount)) % itemCount
+                } else {
+                  onWheel = Math.abs(dx) < wheelHolder.width / 2
+                    && Math.abs(dy) < wheelHolder.height / 2
+                }
               }
+            } else {
+              center = true
             }
-          } else {
-            center = true
           }
         }
       }
