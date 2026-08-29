@@ -101,11 +101,15 @@ Item {
     if (openPending) return
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
-    if (opened) {
+    if (opened && payload.edit !== true) {
       // Hold mode: a fresh press while the wheel is up must keep the
       // current level — chained hold-release gestures descend through
-      // sub-wheels. Click mode keeps the old behavior (restart at root).
-      if (wheelMode === "hold" && payload.edit !== true) return
+      // sub-wheels. Click mode: the press toggles — pressing again with
+      // summon-bound keys closes, exactly like the click-mode toggle
+      // binding, so summon+pick users can dismiss with the button too.
+      if (wheelMode === "hold") return
+      close()
+      return
     }
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()

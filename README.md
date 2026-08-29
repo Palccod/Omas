@@ -70,12 +70,17 @@ Press once to open, once more to dismiss; point and click to run items:
 o.bind("SUPER + Z", "Omas wheel", "omarchy-shell shell toggle palccod.omas")
 ```
 
+The `toggle` variant and a plain `summon` behave the same in click mode:
+pressing while the wheel is up closes it — so the two-line hold setup
+below also works if you switch back to click mode.
+
 ### Hold mode — two bindings
 
 Press and **hold** — the wheel opens; flick to an item and **release the
 keys** to launch it. Releasing on a category descends into its sub-wheel
-(the wheel stays up; press and release again for the next level), and
-releasing on the hub, the edge, or nothing dismisses it:
+(the wheel stays up; press and release again for the next level).
+Releasing on the center goes **back** one level — at the root wheel it
+opens the wheel editor — and releasing off the wheel dismisses it:
 
 ```lua
 o.bind("SUPER + Z", "Omas wheel", "omarchy-shell shell summon palccod.omas")
