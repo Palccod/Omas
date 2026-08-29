@@ -182,7 +182,15 @@ Item {
     }
     if (!moved) return
     if (index >= 0) openItem(index)
-    else if (hub) { if (canGoBack) goBack(); else enterEditor() }
+    else if (hub) {
+      // Back/editor on a center release is a hold gesture. In click
+      // mode the keybind is just an opener — a release on the hub
+      // leaves the wheel open for clicking instead of yanking the user
+      // into the editor.
+      if (wheelMode !== "hold") return
+      if (canGoBack) goBack()
+      else enterEditor()
+    }
     else if (onWheel) return
     else close()
   }

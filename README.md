@@ -72,7 +72,9 @@ o.bind("SUPER + Z", "Omas wheel", "omarchy-shell shell toggle palccod.omas")
 
 The `toggle` variant and a plain `summon` behave the same in click mode:
 pressing while the wheel is up closes it — so the two-line hold setup
-below also works if you switch back to click mode.
+below also works if you switch back to click mode. (Going back /
+opening the editor from a center release is a hold-mode gesture; in
+click mode a release on the center just leaves the wheel open.)
 
 ### Hold mode — two bindings
 
