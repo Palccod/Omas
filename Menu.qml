@@ -105,7 +105,10 @@ Item {
       // Hold mode: a fresh press while the wheel is up must keep the
       // current level — chained hold-release gestures descend through
       // sub-wheels. Click mode keeps the old behavior (restart at root).
-      if (wheelMode === "hold" && payload.edit !== true) return
+      if (wheelMode === "hold" && payload.edit !== true) {
+        clickUsed = false   // new gesture: clicks from the last one no longer count
+        return
+      }
     }
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
@@ -133,13 +136,18 @@ Item {
   // hub, the scrim, or a read failure all count as "dismiss".
   property real lastPickMs: 0
 
+  // Set when a click selects on the wheel while a hold gesture is in
+  // flight: the click owns the gesture, so the pending side-button
+  // release must not fire another pick on top of it.
+  property bool clickUsed: false
+
   function pick() {
     // Debounce: a chattering button or racing release events must not
     // resolve two picks from one gesture.
     var now = Date.now()
     if (now - lastPickMs < 150) return
     lastPickMs = now
-    if (!opened || editorOpen || openPending) return
+    if (!opened || editorOpen || openPending || clickUsed) return
     pickProc.running = true
   }
 
@@ -205,6 +213,7 @@ Item {
     openPending = false
     cursorFallback.stop()
     opened = true
+    clickUsed = false
     pickOrigin = cursorAt.x >= 0 ? Qt.point(cursorAt.x, cursorAt.y)
                                  : Qt.point(panel.width / 2, panel.height / 2)
     bumpWheel()
@@ -236,6 +245,7 @@ Item {
     cursorFallback.stop()
     opened = false
     editorOpen = false
+    clickUsed = false
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     hoveredIndex = -1
@@ -623,7 +633,10 @@ Item {
             root.hoveredIndex = root.wedgeIndexAt(mouse.x, mouse.y)
           }
           onExited: root.hoveredIndex = -1
-          onClicked: if (root.hoveredIndex >= 0) root.openItem(root.hoveredIndex)
+          onClicked: if (root.hoveredIndex >= 0) {
+            root.clickUsed = true
+            root.openItem(root.hoveredIndex)
+          }
         }
 
         Repeater {
@@ -709,6 +722,7 @@ Item {
             // Deeper wheels: back. Root wheel: the hub is the door to
             // the settings/editor panel.
             onClicked: {
+              root.clickUsed = true
               if (root.canGoBack) root.goBack()
               else root.enterEditor()
             }
