@@ -124,12 +124,15 @@ Item {
   }
 
   // Release-to-launch for hold-mode keybinds: press summons, and the
-  // release binding calls this via the shell IPC. A fresh cursor read
-  // (not the hover state — hover can lag or be absent entirely) is mapped
-  // through the same wedge math the mouse uses; the hub, the scrim, or a
-  // read failure all count as "dismiss". Click-mode configs ignore it.
+  // release binding calls this via the shell IPC. Registering the release
+  // binding is the explicit opt-in, so this works in both summon modes —
+  // a click-mode user who adds it still gets the gesture (mode only
+  // changes what pressing again does while the wheel is up). A fresh
+  // cursor read (not the hover state — hover can lag or be absent
+  // entirely) is mapped through the same wedge math the mouse uses; the
+  // hub, the scrim, or a read failure all count as "dismiss".
   function pick() {
-    if (wheelMode !== "hold" || !opened || editorOpen || openPending) return
+    if (!opened || editorOpen || openPending) return
     pickProc.running = true
   }
 

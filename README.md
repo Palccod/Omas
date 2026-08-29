@@ -190,12 +190,13 @@ this file too.
 - **`mode`** picks how the keybind behaves: **`"click"`** (default)
   toggles the wheel with a single press — point and click to run. **
   `"hold"`** opens the wheel while the key is held and launches the item
-  under the pointer when the keys are released. Hold mode also needs the
-  release keybind from [Keybind](#keybind--super--z); without it the
-  wheel just behaves like click mode with `summon`. You can also flip
-  this with the **Summon mode** switch on the wheel editor's main page —
-  it applies when you **Save & close**, and editor saves preserve your
-  choice.
+  under the pointer when the keys are released. The release binding
+  works in both modes — registering it is what opts you in to the
+  gesture — but chained multi-level holds (pressing again on a
+  sub-wheel without resetting to the root) need **`"hold"`**. You can
+  also flip this with the **Summon mode** switch on the wheel editor's
+  main page — it applies when you **Save & close**, and editor saves
+  preserve your choice.
 - **Sizes are bounded** to protect the long-lived shell: the config file
   is capped at 256 KiB, 200 total items, 8 nesting levels, and per-field
   lengths (name 64, icon/path 256, command 1024 characters). An
