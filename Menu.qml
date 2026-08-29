@@ -34,6 +34,11 @@ Item {
   property bool configReady: false
   property string configError: ""
 
+  // Summon mode from the config: "click" (default) toggles with a single
+  // key press; "hold" opens on press and launches whatever wedge is under
+  // the pointer when the keys are released (see pick()).
+  property string wheelMode: "click"
+
   // Summon payload {"edit": true} opens the wheel editor instead of the
   // pie. The editor edits a working copy and writes omas.jsonc on save.
   property bool editorOpen: false
@@ -63,7 +68,10 @@ Item {
     return JSON.stringify({
       editorOpen: editorOpen,
       formDepth: editor.formStack.length,
+      summonMode: editor.summonMode,
       opened: opened,
+      mode: wheelMode,
+      hovered: hoveredIndex,
       openAt: openAt.x + "," + openAt.y,
       openPending: openPending,
       items: itemCount,
@@ -87,6 +95,12 @@ Item {
     if (openPending) return
     var payload = ({})
     try { payload = JSON.parse(payloadJson || "{}") } catch (e) { payload = ({}) }
+    if (opened) {
+      // Hold mode: a fresh press while the wheel is up must keep the
+      // current level — chained hold-release gestures descend through
+      // sub-wheels. Click mode keeps the old behavior (restart at root).
+      if (wheelMode === "hold" && payload.edit !== true) return
+    }
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     cursorAt = Qt.point(-1, -1)
@@ -101,6 +115,42 @@ Item {
     openPending = true
     cursorFallback.restart()
     cursorProc.running = true
+  }
+
+  // Release-to-launch for hold-mode keybinds: press summons, and the
+  // release binding calls this via the shell IPC. A fresh cursor read
+  // (not the hover state — hover can lag or be absent entirely) is mapped
+  // through the same wedge math the mouse uses; the hub, the scrim, or a
+  // read failure all count as "dismiss". Click-mode configs ignore it.
+  function pick() {
+    if (wheelMode !== "hold" || !opened || editorOpen || openPending) return
+    pickProc.running = true
+  }
+
+  // Second half of pick(): map the global pointer position into wheel
+  // coordinates (undoing the pie scale around its center) and select.
+  function finishPick(raw) {
+    var index = -1
+    try {
+      var t = String(raw || "").trim()
+      var comma = t.indexOf(",")
+      if (comma > 0) {
+        var gx = parseFloat(t.substring(0, comma))
+        var gy = parseFloat(t.substring(comma + 1))
+        var p = localCursorCenter(gx, gy)
+        if (p) {
+          var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
+          var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
+          index = wedgeIndexAt(
+            wheelHolder.width / 2 + (p.x - csx) / pieScale,
+            wheelHolder.height / 2 + (p.y - csy) / pieScale)
+        }
+      }
+    } catch (e) {
+      console.warn("Omas: pick failed:", e)
+    }
+    if (index >= 0) openItem(index)
+    else close()
   }
 
   // Second half of open(), called by the cursor read or its fallback timer.
@@ -130,7 +180,7 @@ Item {
   function enterEditor() {
     editorOpen = true
     var tree = rootWheel ? rootWheel.items : PieModel.demoWheel().items
-    editor.beginEdit(JSON.parse(JSON.stringify(tree)))
+    editor.beginEdit(JSON.parse(JSON.stringify(tree)), wheelMode)
   }
 
   function close() {
@@ -146,15 +196,32 @@ Item {
 
   // The editor's Save: write the config file through FileView (bounded,
   // atomic temp-file + rename — no shell command is built) and apply it
-  // immediately. The file watcher will also reload it, harmlessly.
+  // immediately. The file watcher will also reload it, harmlessly. The
+  // editor serializes only the item tree, so the summon mode chosen in
+  // the editor is re-injected here — otherwise every editor save would
+  // silently drop it.
   function saveFromEditor(json) {
     if (!json || json.length > PieModel.MAX_FILE_CHARS) {
       configError = "wheel exceeds size limits; nothing was written"
       return
     }
-    configFile.setText(json)
+    var doc = json
+    try {
+      var mode = editor.summonMode === "hold" ? "hold" : "click"
+      var obj = JSON.parse(json)
+      if (!Array.isArray(obj) && obj.mode !== mode) {
+        if (mode !== "click") obj.mode = mode
+        else delete obj.mode
+        doc = JSON.stringify(obj, null, 2) + "\n"
+        if (doc.length > PieModel.MAX_FILE_CHARS) {
+          configError = "wheel exceeds size limits; nothing was written"
+          return
+        }
+      }
+    } catch (e) { doc = json }
+    configFile.setText(doc)
     editorOpen = false
-    applyConfig(json)
+    applyConfig(doc)
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     bumpWheel()
@@ -230,6 +297,7 @@ Item {
       rejectConfig(parsed.error)
     } else {
       rootWheel = { title: "Omas", items: parsed.items }
+      wheelMode = parsed.mode === "hold" ? "hold" : "click"
       // Refresh a wheel that is on screen only when we're still at the root
       // and the editor isn't holding a working copy, so mid-navigation
       // state isn't yanked out from under the user.
@@ -287,6 +355,7 @@ Item {
           if (code === "NOFILE") {
             // No user config yet — the demo wheel doubles as the hint.
             configError = ""
+            wheelMode = "click"
             rootWheel = PieModel.demoWheel()
             if (root.opened && !root.editorOpen && root.navStack.length === 0) {
               root.wheel = rootWheel
@@ -355,6 +424,16 @@ Item {
     id: cursorFallback
     interval: 250
     onTriggered: root.finishOpen()
+  }
+
+  // Fresh cursor read for pick(); empty or failed output dismisses.
+  Process {
+    id: pickProc
+    command: ["hyprctl", "cursorpos"]
+
+    stdout: StdioCollector {
+      onStreamFinished: root.finishPick(text)
+    }
   }
 
   Component.onCompleted: loadConfig()

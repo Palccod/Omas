@@ -18,6 +18,11 @@ at an item and click — that's all there is to it.
 - **Opens under your cursor** — the wheel is summoned right where the
   mouse is (sliding in from the edge when there's no room; falls back to
   the screen center if the cursor position can't be read)
+- **Two summon modes** — **click mode** (default): one key press toggles
+  the wheel, click an item to run it. **hold mode**: hold the key, flick
+  to an item, release to launch it — release again on each sub-wheel to
+  descend. Your choice, switched in the wheel editor's main page or set
+  in the config
 - **Custom icons** — emoji, text glyphs, or image files (a starter icon
   pack ships with the plugin)
 - **Built-in editor** — open it right from the wheel's center; add, edit,
@@ -54,16 +59,35 @@ editing files.
 ## Keybind — SUPER + Z
 
 Omas is summoned through the shell IPC. The default keybind this plugin is
-designed for is **SUPER + Z**; it's free in a stock Omarchy setup, so add
-it to `~/.config/hypr/bindings.lua`:
+designed for is **SUPER + Z**; it's free in a stock Omarchy setup. How you
+bind it depends on the summon mode you pick (see [Configuration](#configuration)):
+
+### Click mode (default) — one binding
+
+Press once to open, once more to dismiss; point and click to run items:
 
 ```lua
 o.bind("SUPER + Z", "Omas wheel", "omarchy-shell shell toggle palccod.omas")
 ```
 
-The command toggles the wheel — press once to open, once more to dismiss.
-Of course you can use any key you like. If your key of choice is already
-bound by Omarchy defaults, unbind it first, then bind it to Omas:
+### Hold mode — two bindings
+
+Press and **hold** — the wheel opens; flick to an item and **release the
+keys** to launch it. Releasing on a category descends into its sub-wheel
+(the wheel stays up; press and release again for the next level), and
+releasing on the hub, the edge, or nothing dismisses it:
+
+```lua
+o.bind("SUPER + Z", "Omas wheel", "omarchy-shell shell summon palccod.omas")
+o.bind("SUPER + Z", "Omas wheel (release)", "omarchy-shell shell call palccod.omas pick x",
+       { release = true })
+```
+
+Clicking items still works in hold mode — the release gesture and clicks
+coexist, so nothing you know is lost.
+
+If your key of choice is already bound by Omarchy defaults, unbind it
+first, then bind it to Omas:
 
 ```lua
 hl.unbind("SUPER + Z")                       -- only if it's already taken
@@ -78,9 +102,12 @@ Handy IPC variants:
 omarchy-shell shell summon palccod.omas               # open the wheel
 omarchy-shell shell summon palccod.omas '{"edit":true}'       # open the editor
 omarchy-shell shell hide palccod.omas                 # dismiss
+omarchy-shell shell call palccod.omas pick x          # hold mode: launch under cursor
 ```
 
 ## Usage — the user flow
+
+**Click mode** (default):
 
 1. Press **SUPER + Z** — the wheel opens right under your cursor.
 2. Point at a category (Web, System, …) and click — its sub-wheel opens.
@@ -88,6 +115,17 @@ omarchy-shell shell hide palccod.omas                 # dismiss
 3. Point at a command and click — it runs and the wheel closes.
 4. At the root wheel, the center circle says **settings**: click it to
    open the wheel editor.
+
+**Hold mode** (after switching to **Hold** on the wheel editor's main
+page — or `"mode": "hold"` in the config — and adding the release
+keybind):
+
+1. **Hold** **SUPER + Z** — the wheel opens under your cursor while the
+   key is down.
+2. Flick toward an item and **release** — it runs. Releasing on a
+   category opens its sub-wheel instead; hold and release again to pick
+   from it. Releasing on the hub or the edge dismisses the wheel.
+3. Clicks and Escape keep working exactly as in click mode.
 
 ### The editor
 
@@ -112,6 +150,7 @@ this file too.
 
 ```jsonc
 {
+  "mode": "hold",                 // optional: "click" (default) or "hold"
   "items": [
     {
       "name": "Web",
@@ -128,6 +167,15 @@ this file too.
 
 - A node with `children` opens a sub-wheel; a node with a `command` runs
   it through bash.
+- **`mode`** picks how the keybind behaves: **`"click"`** (default)
+  toggles the wheel with a single press — point and click to run. **
+  `"hold"`** opens the wheel while the key is held and launches the item
+  under the pointer when the keys are released. Hold mode also needs the
+  release keybind from [Keybind](#keybind--super--z); without it the
+  wheel just behaves like click mode with `summon`. You can also flip
+  this with the **Summon mode** switch on the wheel editor's main page —
+  it applies when you **Save & close**, and editor saves preserve your
+  choice.
 - **Sizes are bounded** to protect the long-lived shell: the config file
   is capped at 256 KiB, 200 total items, 8 nesting levels, and per-field
   lengths (name 64, icon/path 256, command 1024 characters). An
@@ -187,8 +235,7 @@ the keybind you added in `bindings.lua`.
 - `omarchy-shell shell call palccod.omas ping x` returns a JSON state
   dump — handy for checking which code the shell is actually running
 - Roadmap ideas: item reordering/duplicate in the editor, per-item
-  themes (sizes, wedge colors), hold-to-open / release-to-launch through
-  a second keybind
+  themes (sizes, wedge colors), a mode toggle in the wheel editor
 
 ## Credits
 

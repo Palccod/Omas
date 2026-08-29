@@ -30,27 +30,30 @@ function stripJsonc(raw) {
 }
 
 // Parse a full config document. Accepts either a top-level array or an
-// object with an "items" (or "children") array. Returns { items, error }.
-// Unknown keys (including the removed "selectionMode") are ignored.
-// A node with an explicit (possibly empty) "children" array is kept as an
-// empty sub-wheel — the editor relies on this so new wheels survive a
-// save/reload round-trip before their first child is added.
+// object with an "items" (or "children") array. Returns { items, error,
+// mode }, where mode is the optional summon mode ("click", the default,
+// or "hold"). Unknown keys (including the removed "selectionMode") are
+// ignored. A node with an explicit (possibly empty) "children" array is
+// kept as an empty sub-wheel — the editor relies on this so new wheels
+// survive a save/reload round-trip before their first child is added.
 function parseConfig(raw) {
   if (String(raw || "").length > MAX_FILE_CHARS)
-    return { items: [], error: limitError("over " + MAX_FILE_CHARS + " characters") }
+    return { items: [], error: limitError("over " + MAX_FILE_CHARS + " characters"), mode: "click" }
 
   var data
   try {
     data = JSON.parse(stripJsonc(raw))
   } catch (e) {
-    return { items: [], error: String(e) }
+    return { items: [], error: String(e), mode: "click" }
   }
 
   var root = null
   if (Array.isArray(data)) root = data
   else if (data && Array.isArray(data.items)) root = data.items
   else if (data && Array.isArray(data.children)) root = data.children
-  if (!root) return { items: [], error: "expected an array of items, or { \"items\": [...] }" }
+  if (!root)
+    return { items: [], error: "expected an array of items, or { \"items\": [...] }", mode: "click" }
+  var mode = data && !Array.isArray(data) && data.mode === "hold" ? "hold" : "click"
 
   var items = []
   var count = 0
@@ -85,8 +88,8 @@ function parseConfig(raw) {
   }
 
   if (items.length === 0)
-    return { items: [], error: "no usable items found (need \"command\" or \"children\")" }
-  return { items: items, error: "" }
+    return { items: [], error: "no usable items found (need \"command\" or \"children\")", mode: mode }
+  return { items: items, error: "", mode: mode }
 }
 
 // True when a (possibly editor-grown) tree fits every budget.

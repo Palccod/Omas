@@ -29,6 +29,10 @@ Item {
   // Set by Menu.qml via beginEdit().
   property var itemsTree: []
 
+  // Summon mode being edited ("click" or "hold"). Menu.qml passes the
+  // current value into beginEdit() and reads it back in saveFromEditor().
+  property string summonMode: "click"
+
   signal editorSaved(string json)
   signal editorCanceled()
 
@@ -54,8 +58,9 @@ Item {
   readonly property var formCtx: formStack.length > 0 ? formStack[formStack.length - 1] : null
   readonly property var formItem: formCtx ? formCtx.item : null
 
-  function beginEdit(tree) {
+  function beginEdit(tree, mode) {
     itemsTree = tree
+    summonMode = mode === "hold" ? "hold" : "click"
     levelStack = []
     currentItems = itemsTree
     currentName = "root"
@@ -493,6 +498,65 @@ Item {
               accent: editor.accent
               onClicked: editor.saveAll()
             }
+          }
+        }
+
+        // Summon mode switch — a root-page-only setting, applied on save.
+        Column {
+          id: modeRow
+          width: parent.width
+          spacing: 2
+          visible: editor.levelStack.length === 0
+
+          Row {
+            width: parent.width
+            spacing: Style.spacing.sm
+
+            FieldLabel {
+              width: parent.width - modeButtons.implicitWidth - parent.spacing
+              anchors.verticalCenter: parent.verticalCenter
+              text: "Summon mode"
+              font.weight: Font.Medium
+            }
+
+            Row {
+              id: modeButtons
+              spacing: Style.space(4)
+
+              Button {
+                text: "Click"
+                tooltipText: "One key press toggles the wheel; point and click to run items"
+                height: Style.spacing.controlHeight
+                active: editor.summonMode === "click"
+                bordered: true
+                focusable: true
+                foreground: editor.foreground
+                accent: editor.accent
+                onClicked: editor.summonMode = "click"
+              }
+              Button {
+                text: "Hold"
+                tooltipText: "Hold the key, flick to an item, release to launch it"
+                height: Style.spacing.controlHeight
+                active: editor.summonMode === "hold"
+                bordered: true
+                focusable: true
+                foreground: editor.foreground
+                accent: editor.accent
+                onClicked: editor.summonMode = "hold"
+              }
+            }
+          }
+
+          Text {
+            width: parent.width
+            text: editor.summonMode === "hold"
+              ? "Hold the key and release over an item to launch it. Hold mode also needs the release keybind — see the README."
+              : "One key press opens the wheel; point and click to run an item."
+            color: editor.dimmed
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            wrapMode: Text.WordWrap
           }
         }
 

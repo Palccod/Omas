@@ -3,6 +3,10 @@
 // Edit this file and save: Omas reloads it live, no restart needed.
 // (Saving from the built-in editor rewrites the file, so comments are lost.)
 //
+//   mode     optional summon mode: "click" (default) toggles the wheel
+//            with one key press; "hold" launches the item under the
+//            pointer when you release the key (needs the release keybind,
+//            see the README)
 //   name     label shown under the icon (required)
 //   icon     emoji, text glyph, or "/absolute/path/to/image" (optional).
 //            A starter icon pack ships next to the plugin files, e.g.:
