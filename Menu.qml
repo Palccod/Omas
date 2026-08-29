@@ -105,10 +105,7 @@ Item {
       // Hold mode: a fresh press while the wheel is up must keep the
       // current level — chained hold-release gestures descend through
       // sub-wheels. Click mode keeps the old behavior (restart at root).
-      if (wheelMode === "hold" && payload.edit !== true) {
-        clickUsed = false   // new gesture: clicks from the last one no longer count
-        return
-      }
+      if (wheelMode === "hold" && payload.edit !== true) return
     }
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
@@ -134,71 +131,44 @@ Item {
   // cursor read (not the hover state — hover can lag or be absent
   // entirely) is mapped through the same wedge math the mouse uses; the
   // hub, the scrim, or a read failure all count as "dismiss".
-  property real lastPickMs: 0
-
-  // Set when a click selects on the wheel while a hold gesture is in
-  // flight: the click owns the gesture, so the pending side-button
-  // release must not fire another pick on top of it.
-  property bool clickUsed: false
-
   function pick() {
-    // Debounce: a chattering button or racing release events must not
-    // resolve two picks from one gesture.
-    var now = Date.now()
-    if (now - lastPickMs < 150) return
-    lastPickMs = now
-    if (!opened || editorOpen || openPending || clickUsed) return
+    if (!opened || editorOpen || openPending) return
     pickProc.running = true
   }
 
-  // Second half of pick(): resolve the release into a selection. The
-  // hover highlight is what the user aims at, so when the pointer is on
-  // a wedge it wins outright — a fresh cursor read lands ~15ms after the
-  // physical release, by which time a fast flick has drifted past the
-  // aimed wedge. The read is only the fallback for positions hover
-  // can't describe (hub, scrim): there, classic radial-menu rules apply
-  // — a flicked release resolves by direction even before the cursor
-  // leaves the hub ring, an in-place release is a center release (back
-  // one level, editor at the root), and off the wheel dismisses.
+  // Second half of pick(): map the global pointer position into wheel
+  // coordinates (undoing the pie scale around its center) and select.
+  // A release without movement since the gesture started keeps the wheel
+  // open — the user didn't flick at anything, so nothing should launch
+  // and the wheel shouldn't vanish under their hand. Releasing on the
+  // hub mirrors click mode: back one level, or the editor at the root;
+  // off the wheel dismisses.
   function finishPick(raw) {
     var index = -1
     var moved = false
-    var center = false
+    var hub = false
     var onWheel = false
     try {
-      if (hoveredIndex >= 0) {
-        index = hoveredIndex
-      } else {
-        var t = String(raw || "").trim()
-        var comma = t.indexOf(",")
-        if (comma > 0) {
-          var gx = parseFloat(t.substring(0, comma))
-          var gy = parseFloat(t.substring(comma + 1))
-          var p = localCursorCenter(gx, gy)
-          if (p) {
-            moved = Math.abs(p.x - pickOrigin.x) + Math.abs(p.y - pickOrigin.y) > Style.space(12)
-            pickOrigin = p
-            if (moved) {
-              var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
-              var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
-              var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
-              var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
-              index = wedgeIndexAt(lx, ly)
-              if (index < 0 && itemCount > 0) {
-                var dx = lx - wheelHolder.width / 2
-                var dy = ly - wheelHolder.height / 2
-                if (Math.sqrt(dx * dx + dy * dy) < wedgeInner) {
-                  // Flick too short to reach the ring: pick by direction.
-                  var deg = Math.atan2(dy, dx) * 180 / Math.PI
-                  if (deg < 0) deg += 360
-                  index = Math.round((deg + 90) / (360 / itemCount)) % itemCount
-                } else {
-                  onWheel = Math.abs(dx) < wheelHolder.width / 2
-                    && Math.abs(dy) < wheelHolder.height / 2
-                }
-              }
-            } else {
-              center = true
+      var t = String(raw || "").trim()
+      var comma = t.indexOf(",")
+      if (comma > 0) {
+        var gx = parseFloat(t.substring(0, comma))
+        var gy = parseFloat(t.substring(comma + 1))
+        var p = localCursorCenter(gx, gy)
+        if (p) {
+          moved = Math.abs(p.x - pickOrigin.x) + Math.abs(p.y - pickOrigin.y) > Style.space(12)
+          pickOrigin = p
+          if (moved) {
+            var csx = openAt.x >= 0 ? openAt.x : panel.width / 2
+            var csy = openAt.y >= 0 ? openAt.y : panel.height / 2
+            var lx = wheelHolder.width / 2 + (p.x - csx) / pieScale
+            var ly = wheelHolder.height / 2 + (p.y - csy) / pieScale
+            index = wedgeIndexAt(lx, ly)
+            if (index < 0) {
+              var dx = lx - wheelHolder.width / 2
+              var dy = ly - wheelHolder.height / 2
+              hub = Math.sqrt(dx * dx + dy * dy) < hubRadius
+              onWheel = Math.abs(dx) < wheelHolder.width / 2 && Math.abs(dy) < wheelHolder.height / 2
             }
           }
         }
@@ -206,10 +176,11 @@ Item {
     } catch (e) {
       console.warn("Omas: pick failed:", e)
     }
+    if (!moved) return
     if (index >= 0) openItem(index)
-    else if (center) { if (canGoBack) goBack(); else enterEditor() }
+    else if (hub) { if (canGoBack) goBack(); else enterEditor() }
     else if (onWheel) return
-    else if (moved) close()
+    else close()
   }
 
   // Second half of open(), called by the cursor read or its fallback timer.
@@ -218,7 +189,6 @@ Item {
     openPending = false
     cursorFallback.stop()
     opened = true
-    clickUsed = false
     pickOrigin = cursorAt.x >= 0 ? Qt.point(cursorAt.x, cursorAt.y)
                                  : Qt.point(panel.width / 2, panel.height / 2)
     bumpWheel()
@@ -250,7 +220,6 @@ Item {
     cursorFallback.stop()
     opened = false
     editorOpen = false
-    clickUsed = false
     navStack = []
     wheel = rootWheel || PieModel.demoWheel()
     hoveredIndex = -1
@@ -638,10 +607,7 @@ Item {
             root.hoveredIndex = root.wedgeIndexAt(mouse.x, mouse.y)
           }
           onExited: root.hoveredIndex = -1
-          onClicked: if (root.hoveredIndex >= 0) {
-            root.clickUsed = true
-            root.openItem(root.hoveredIndex)
-          }
+          onClicked: if (root.hoveredIndex >= 0) root.openItem(root.hoveredIndex)
         }
 
         Repeater {
@@ -727,7 +693,6 @@ Item {
             // Deeper wheels: back. Root wheel: the hub is the door to
             // the settings/editor panel.
             onClicked: {
-              root.clickUsed = true
               if (root.canGoBack) root.goBack()
               else root.enterEditor()
             }
