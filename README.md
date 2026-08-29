@@ -110,8 +110,13 @@ Check that **two** entries are registered — a `bind` and a `bindrd`:
 hyprctl binds | grep -A4 "mouse:276"
 ```
 
-One entry instead of two → update Omarchy/Hyprland. Releasing without
-flicking keeps the wheel open, so a stray press never launches anything.
+One entry instead of two → update Omarchy/Hyprland. Note that on mouse
+buttons Hyprland's release binds can be flaky after cursor movement (a
+flick sometimes swallows the release), so if a first hold+release
+occasionally does nothing, hold and release once more — the wheel stays
+open where you left it. Keyboard keys don't have this quirk. Releasing
+without flicking keeps the wheel open, so a stray press never launches
+anything.
 
 If your key of choice is already bound by Omarchy defaults, unbind it
 first, then bind it to Omas:

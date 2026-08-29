@@ -135,7 +135,15 @@ Item {
   // cursor read (not the hover state — hover can lag or be absent
   // entirely) is mapped through the same wedge math the mouse uses; the
   // hub, the scrim, or a read failure all count as "dismiss".
+  property real lastPickMs: 0
+
   function pick() {
+    // Hyprland has been observed dispatching a mouse release bind twice
+    // for one gesture; a chattering button can do the same. One gesture
+    // must resolve once.
+    var now = Date.now()
+    if (now - lastPickMs < 150) return
+    lastPickMs = now
     if (!opened || editorOpen || openPending) return
     pickProc.running = true
   }
